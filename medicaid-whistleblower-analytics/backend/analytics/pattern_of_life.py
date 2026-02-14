@@ -93,7 +93,9 @@ def analyze_behavioral_patterns(
         risk_score += 30 if weekend_ratio > 0.25 else 15
     
     # Analyze holiday billing patterns
-    # TODO: Add holiday detection logic
+    # Note: Holiday detection would require a calendar of federal/state holidays.
+    # This is a placeholder for future enhancement. For now, weekend billing
+    # serves as a proxy for unusual timing patterns.
     
     # Analyze time-of-day patterns for suspicious batch submissions
     submission_hours = {}
@@ -362,9 +364,12 @@ def detect_kickback_patterns(
     
     # Store kickback indicators
     if findings:
+        # Note: cash_withdrawal_pattern requires integration with financial transaction data
+        # which is typically not available in claims databases. This field is reserved
+        # for future integration with external data sources (e.g., bank records in qui tam cases).
         indicator = KickbackIndicator(
             provider_id=provider_id,
-            cash_withdrawal_pattern=False,  # Would require external data
+            cash_withdrawal_pattern=False,  # Requires external financial data
             referral_network={"high_concentration_beneficiaries": len(high_concentration)},
             patient_enrollment_spikes=[s["month"] for s in spikes] if 'spikes' in locals() else [],
             notes=f"Detected {len(findings)} kickback indicators"

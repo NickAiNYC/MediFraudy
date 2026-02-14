@@ -46,7 +46,7 @@ const ElderlyCareDashboard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [minRiskScore, setMinRiskScore] = useState(50);
 
-  const runSweep = async () => {
+  const runSweep = React.useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -57,12 +57,12 @@ const ElderlyCareDashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [minRiskScore]);
 
   useEffect(() => {
     // Auto-run sweep on component mount
     runSweep();
-  }, []);
+  }, [runSweep]);
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {

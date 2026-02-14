@@ -321,9 +321,10 @@ def detect_kickback_patterns(
         risk_score += 35 if concentration_ratio > 0.1 else 20
     
     # Detect enrollment spikes (month-over-month)
+    # Use strftime for SQLite compatibility (works with both SQLite and PostgreSQL)
     monthly_new_beneficiaries = (
         db.query(
-            func.date_trunc('month', Claim.claim_date).label("month"),
+            func.strftime('%Y-%m', Claim.claim_date).label("month"),
             func.count(func.distinct(Claim.beneficiary_id)).label("new_count")
         )
         .filter(
@@ -332,8 +333,8 @@ def detect_kickback_patterns(
                 Claim.claim_date >= cutoff_date
             )
         )
-        .group_by(func.date_trunc('month', Claim.claim_date))
-        .order_by(func.date_trunc('month', Claim.claim_date))
+        .group_by(func.strftime('%Y-%m', Claim.claim_date))
+        .order_by(func.strftime('%Y-%m', Claim.claim_date))
         .all()
     )
     

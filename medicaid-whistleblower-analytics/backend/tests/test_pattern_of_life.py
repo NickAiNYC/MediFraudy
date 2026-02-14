@@ -2,7 +2,8 @@
 
 import pytest
 from datetime import datetime, timedelta
-from sqlalchemy.orm import Session
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
 
 from analytics.pattern_of_life import (
     analyze_behavioral_patterns,
@@ -12,18 +13,23 @@ from analytics.pattern_of_life import (
     analyze_nyc_elderly_care_facilities,
 )
 from models import Provider, Claim, Base
-from database import engine
+
+
+# Create in-memory SQLite database for testing
+TEST_DATABASE_URL = "sqlite:///:memory:"
+test_engine = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
+TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 
 
 @pytest.fixture
 def test_db():
     """Create test database session."""
-    Base.metadata.create_all(bind=engine)
-    from database import SessionLocal
-    db = SessionLocal()
+    # Create new tables for each test
+    Base.metadata.drop_all(bind=test_engine)
+    Base.metadata.create_all(bind=test_engine)
+    db = TestSessionLocal()
     yield db
     db.close()
-    Base.metadata.drop_all(bind=engine)
 
 
 @pytest.fixture
@@ -55,8 +61,8 @@ def test_analyze_behavioral_patterns_no_claims(test_db, sample_provider):
 
 def test_analyze_behavioral_patterns_weekend_billing(test_db, sample_provider):
     """Test detection of unusual weekend billing patterns."""
-    # Create weekend claims (Saturday and Sunday)
-    base_date = datetime(2024, 1, 6)  # Saturday
+    # Create weekend claims (Saturday and Sunday) - use recent dates
+    base_date = datetime.utcnow() - timedelta(days=90)  # 90 days ago
     
     for i in range(30):
         day_offset = i % 7
@@ -98,7 +104,7 @@ def test_detect_capacity_violations_with_violation(test_db, sample_provider):
     """Test detection of capacity violations."""
     # Create claims for 60 unique beneficiaries on the same day
     # Licensed capacity is 50, so this is a violation
-    violation_date = datetime(2024, 1, 15, 10, 0, 0)
+    violation_date = datetime.utcnow() - timedelta(days=30)  # Recent date
     
     for i in range(60):
         claim = Claim(
@@ -140,7 +146,7 @@ def test_detect_kickback_patterns_no_data(test_db, sample_provider):
 def test_detect_kickback_patterns_concentration(test_db, sample_provider):
     """Test detection of beneficiary concentration patterns."""
     # Create claims with high concentration (one beneficiary has many claims)
-    base_date = datetime(2024, 1, 1)
+    base_date = datetime.utcnow() - timedelta(days=180)  # Recent date
     
     # High-frequency beneficiary
     for i in range(50):
@@ -185,7 +191,7 @@ def test_detect_kickback_patterns_concentration(test_db, sample_provider):
 def test_comprehensive_pattern_analysis(test_db, sample_provider):
     """Test comprehensive analysis combining all modules."""
     # Create test data
-    base_date = datetime(2024, 1, 1)
+    base_date = datetime.utcnow() - timedelta(days=60)  # Recent date
     
     for i in range(50):
         claim = Claim(
@@ -216,14 +222,14 @@ def test_analyze_nyc_elderly_care_facilities(test_db):
     """Test NYC-wide facility sweep."""
     # Create multiple NYC providers
     facilities = [
-        ("Test Nursing Home 1", "Nursing Home", "New York"),
-        ("Test Adult Day Care", "Adult Day Care", "Brooklyn"),
-        ("Test Home Health", "Home Health Agency", "Queens"),
+        ("Test Nursing Home 1", "Nursing Home", "New York", "1234567890"),
+        ("Test Adult Day Care", "Adult Day Care", "Brooklyn", "1234567891"),
+        ("Test Home Health", "Home Health Agency", "Queens", "1234567892"),
     ]
     
-    for name, facility_type, city in facilities:
+    for name, facility_type, city, npi in facilities:
         provider = Provider(
-            npi=f"123456789{len(facilities)}",
+            npi=npi,
             name=name,
             facility_type=facility_type,
             city=city,
@@ -254,7 +260,7 @@ def test_provider_not_found(test_db):
 def test_batch_submission_detection(test_db, sample_provider):
     """Test detection of suspicious batch submissions."""
     # Create claims all submitted at the same hour
-    base_date = datetime(2024, 1, 15, 14, 0, 0)  # 2 PM
+    base_date = datetime.utcnow() - timedelta(days=45)  # Recent date, 2 PM
     
     for i in range(30):
         claim = Claim(

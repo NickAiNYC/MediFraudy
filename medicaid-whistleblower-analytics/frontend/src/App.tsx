@@ -1,29 +1,35 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import Layout from './components/Layout';
-import ProviderSearch from './components/ProviderSearch';
-import AnomalyTable from './components/AnomalyTable';
-import TrendChart from './components/TrendChart';
-import CaseManager from './components/CaseManager';
-import ProviderDetail from './components/ProviderDetail';
-import MapView from './components/MapView';
-import ElderlyCareDashboard from './pages/ElderlyCareDashboard';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { Box, CircularProgress } from '@mui/material';
+import Layout from './components/Layout/Layout';
+
+// Lazy load pages for better performance
+const Dashboard = React.lazy(() => import('./pages/Dashboard'));
+const Providers = React.lazy(() => import('./pages/Providers'));
+const ProviderDetail = React.lazy(() => import('./pages/ProviderDetail'));
+const Analytics = React.lazy(() => import('./pages/Analytics'));
+const Cases = React.lazy(() => import('./pages/Cases'));
+const Settings = React.lazy(() => import('./pages/Settings'));
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route element={<Layout />}>
-          <Route path="/" element={<ProviderSearch />} />
-          <Route path="/anomalies" element={<AnomalyTable />} />
-          <Route path="/trends" element={<TrendChart />} />
-          <Route path="/cases" element={<CaseManager />} />
+    <Layout>
+      <React.Suspense fallback={
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+          <CircularProgress />
+        </Box>
+      }>
+        <Routes>
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/providers" element={<Providers />} />
           <Route path="/providers/:id" element={<ProviderDetail />} />
-          <Route path="/map" element={<MapView />} />
-          <Route path="/elderly-care" element={<ElderlyCareDashboard />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+          <Route path="/analytics" element={<Analytics />} />
+          <Route path="/cases" element={<Cases />} />
+          <Route path="/settings" element={<Settings />} />
+        </Routes>
+      </React.Suspense>
+    </Layout>
   );
 }
 

@@ -4,7 +4,6 @@ import {
   Typography,
   Card,
   CardContent,
-  Grid,
   Chip,
   Alert,
   CircularProgress,
@@ -23,6 +22,7 @@ import {
   TableHead,
   TableRow,
   LinearProgress,
+  Stack,
 } from '@mui/material';
 import {
   ExpandMore,
@@ -154,8 +154,8 @@ const PatternOfLifeView: React.FC<PatternOfLifeViewProps> = ({ providerId }) => 
       </Typography>
 
       {/* Summary Cards */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={3}>
+      <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
+        <Box sx={{ flex: 1 }}>
           <Card>
             <CardContent>
               <Typography color="text.secondary" variant="body2" gutterBottom>
@@ -179,9 +179,9 @@ const PatternOfLifeView: React.FC<PatternOfLifeViewProps> = ({ providerId }) => 
               />
             </CardContent>
           </Card>
-        </Grid>
+        </Box>
 
-        <Grid item xs={12} md={3}>
+        <Box sx={{ flex: 1 }}>
           <Card>
             <CardContent>
               <Typography color="text.secondary" variant="body2" gutterBottom>
@@ -192,9 +192,9 @@ const PatternOfLifeView: React.FC<PatternOfLifeViewProps> = ({ providerId }) => 
               </Typography>
             </CardContent>
           </Card>
-        </Grid>
+        </Box>
 
-        <Grid item xs={12} md={3}>
+        <Box sx={{ flex: 1 }}>
           <Card>
             <CardContent>
               <Typography color="text.secondary" variant="body2" gutterBottom>
@@ -205,9 +205,9 @@ const PatternOfLifeView: React.FC<PatternOfLifeViewProps> = ({ providerId }) => 
               </Typography>
             </CardContent>
           </Card>
-        </Grid>
+        </Box>
 
-        <Grid item xs={12} md={3}>
+        <Box sx={{ flex: 1 }}>
           <Card>
             <CardContent>
               <Typography color="text.secondary" variant="body2" gutterBottom>
@@ -218,8 +218,8 @@ const PatternOfLifeView: React.FC<PatternOfLifeViewProps> = ({ providerId }) => 
               </Typography>
             </CardContent>
           </Card>
-        </Grid>
-      </Grid>
+        </Box>
+      </Stack>
 
       {/* Analysis Modules */}
       <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>

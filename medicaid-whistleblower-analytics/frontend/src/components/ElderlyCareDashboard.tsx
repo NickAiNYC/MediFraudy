@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { 
   Box, 
   Typography, 
-  Grid, 
   Card, 
   CardContent, 
   Alert,
@@ -15,7 +14,8 @@ import {
   TableHead,
   TableRow,
   Paper,
-  Button
+  Button,
+  Stack
 } from '@mui/material';
 import { Warning, CheckCircle, Error as ErrorIcon } from '@mui/icons-material';
 import { apiService } from '../services/api';
@@ -100,8 +100,8 @@ const ElderlyCareDashboard: React.FC = () => {
         </Typography>
       </Alert>
 
-      <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={3}>
+      <Stack direction="row" spacing={3} sx={{ mb: 3 }}>
+        <Box sx={{ flex: 1 }}>
           <Card>
             <CardContent>
               <Typography color="text.secondary" gutterBottom>
@@ -112,9 +112,9 @@ const ElderlyCareDashboard: React.FC = () => {
               </Typography>
             </CardContent>
           </Card>
-        </Grid>
+        </Box>
         
-        <Grid item xs={12} md={3}>
+        <Box sx={{ flex: 1 }}>
           <Card>
             <CardContent>
               <Typography color="text.secondary" gutterBottom>
@@ -125,9 +125,9 @@ const ElderlyCareDashboard: React.FC = () => {
               </Typography>
             </CardContent>
           </Card>
-        </Grid>
+        </Box>
         
-        <Grid item xs={12} md={3}>
+        <Box sx={{ flex: 1 }}>
           <Card>
             <CardContent>
               <Typography color="text.secondary" gutterBottom>
@@ -138,9 +138,9 @@ const ElderlyCareDashboard: React.FC = () => {
               </Typography>
             </CardContent>
           </Card>
-        </Grid>
+        </Box>
         
-        <Grid item xs={12} md={3}>
+        <Box sx={{ flex: 1 }}>
           <Card>
             <CardContent>
               <Typography color="text.secondary" gutterBottom>
@@ -151,8 +151,8 @@ const ElderlyCareDashboard: React.FC = () => {
               </Typography>
             </CardContent>
           </Card>
-        </Grid>
-      </Grid>
+        </Box>
+      </Stack>
 
       <Box sx={{ mb: 3 }}>
         <Button 

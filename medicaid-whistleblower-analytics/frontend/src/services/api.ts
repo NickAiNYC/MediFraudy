@@ -82,26 +82,6 @@ export const getNYCElderlySweep = async (minRiskScore: number = 50, limit: numbe
   return response.data;
 };
 
-export const apiService = {
-  searchProviders,
-  getProvider,
-  listAnomalies,
-  getBillingStats,
-  getOutliers,
-  getTrends,
-  compareProvider,
-  getFraudPatterns,
-  getPatternOfLife,
-  getCapacityViolations,
-  getKickbackPatterns,
-  getBehavioralPatterns,
-  getNYCElderlySweep,
-  listCases,
-  createCase,
-  addTimelineEvent,
-  exportProviderReport,
-};
-
 /* --- Cases --- */
 
 export const listCases = (status?: string) =>
@@ -126,5 +106,26 @@ export const addTimelineEvent = (
 
 export const exportProviderReport = (providerId: number) =>
   api.get(`/api/export/provider/${providerId}`);
+
+// Export as service object
+export const apiService = {
+  searchProviders,
+  getProvider,
+  listAnomalies,
+  getBillingStats,
+  getOutliers,
+  getTrends,
+  compareProvider,
+  getFraudPatterns,
+  getPatternOfLife,
+  getCapacityViolations,
+  getKickbackPatterns,
+  getBehavioralPatterns,
+  getNYCElderlySweep,
+  listCases,
+  createCase,
+  addTimelineEvent,
+  exportProviderReport,
+};
 
 export default api;

@@ -32,12 +32,14 @@ class Provider(Base):
     state = Column(String(2))
     zip_code = Column(String(10))
     facility_type = Column(String(100))
+    specialty = Column(String(100))
     licensed_capacity = Column(Integer)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     claims = relationship("Claim", back_populates="provider")
     anomalies = relationship("Anomaly", back_populates="provider")
     cases = relationship("Case", back_populates="facility")
+
 
 
 class Claim(Base):
@@ -47,11 +49,15 @@ class Claim(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     provider_id = Column(Integer, ForeignKey("providers.id"), nullable=False)
+    beneficiary_id = Column(String(50), index=True)  # For kickback detection
     billing_code = Column(String(20), index=True, nullable=False)
     amount = Column(Float, nullable=False)
     claim_date = Column(Date, nullable=False)
+    submitted_date = Column(DateTime)  # For batch submission detection
     service_category = Column(String(100))
     units = Column(Integer)
+    place_of_service = Column(String(50))
+    modifiers = Column(JSON)
 
     provider = relationship("Provider", back_populates="claims")
 
@@ -116,9 +122,11 @@ class KickbackIndicator(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     provider_id = Column(Integer, ForeignKey("providers.id"), nullable=False)
+    beneficiary_concentration = Column(Float)  # Ratio of high-frequency patients
     cash_withdrawal_pattern = Column(Boolean, default=False)
     referral_network = Column(JSON)
     patient_enrollment_spikes = Column(JSON)
+    risk_score = Column(Float)
     notes = Column(Text)
     detected_at = Column(DateTime, default=datetime.utcnow)
 
@@ -136,9 +144,12 @@ class CapacityViolation(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     provider_id = Column(Integer, ForeignKey("providers.id"), nullable=False)
+    violation_date = Column(DateTime)
     licensed_capacity = Column(Integer)
+    billed_patients = Column(Integer)
     daily_billed_patients = Column(JSON)
     violation_dates = Column(JSON)
+    excess_percentage = Column(Float)
     severity = Column(String(50))
     notes = Column(Text)
     detected_at = Column(DateTime, default=datetime.utcnow)

@@ -60,16 +60,8 @@ import {
   Legend,
 } from 'recharts';
 
-import {
-  getProvider,
-  getPatternOfLife,
-  getCapacityViolations,
-  getKickbackPatterns,
-  getBehavioralPatterns,
-  downloadProviderReport,
-  createCase,
-  addTimelineEvent,
-} from '../services/api';
+// Import from modular API (Option 1)
+import { providerApi, polApi, exportApi, caseApi } from '../services/api';
 
 interface Provider {
   id: number;
@@ -160,7 +152,7 @@ const ProviderDetail: React.FC = () => {
     // Fetch provider details
     setLoading(prev => ({ ...prev, provider: true }));
     try {
-      const { data } = await getProvider(providerId);
+      const data = await providerApi.get(providerId);
       setProvider(data);
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to fetch provider');
@@ -171,7 +163,7 @@ const ProviderDetail: React.FC = () => {
     // Fetch POL analysis
     setLoading(prev => ({ ...prev, pol: true }));
     try {
-      const data = await getPatternOfLife(providerId, lookbackDays);
+      const data = await polApi.getFullAnalysis(providerId, lookbackDays);
       setPolAnalysis(data);
     } catch (err: any) {
       console.error('POL analysis failed:', err);
@@ -182,7 +174,7 @@ const ProviderDetail: React.FC = () => {
     // Fetch capacity violations
     setLoading(prev => ({ ...prev, capacity: true }));
     try {
-      const data = await getCapacityViolations(providerId, lookbackDays);
+      const data = await polApi.getCapacityViolations(providerId, lookbackDays);
       setCapacityData(data.violations || []);
     } catch (err) {
       console.error('Failed to fetch capacity data:', err);
@@ -193,7 +185,7 @@ const ProviderDetail: React.FC = () => {
     // Fetch kickback patterns
     setLoading(prev => ({ ...prev, kickback: true }));
     try {
-      const data = await getKickbackPatterns(providerId, lookbackDays);
+      const data = await polApi.getKickbackPatterns(providerId, lookbackDays);
       setKickbackData(data);
     } catch (err) {
       console.error('Failed to fetch kickback data:', err);
@@ -204,7 +196,7 @@ const ProviderDetail: React.FC = () => {
     // Fetch behavioral patterns
     setLoading(prev => ({ ...prev, behavioral: true }));
     try {
-      const data = await getBehavioralPatterns(providerId, lookbackDays);
+      const data = await polApi.getBehavioralPatterns(providerId, lookbackDays);
       setBehavioralData(data);
     } catch (err) {
       console.error('Failed to fetch behavioral data:', err);
@@ -223,7 +215,7 @@ const ProviderDetail: React.FC = () => {
 
   const handleDownloadReport = () => {
     if (provider) {
-      downloadProviderReport(providerId);
+      exportApi.downloadProviderReport(providerId);
     }
   };
 
@@ -232,7 +224,7 @@ const ProviderDetail: React.FC = () => {
 
     setCreatingCase(true);
     try {
-      await createCase(caseId, providerId, caseNotes);
+      await caseApi.create(caseId, providerId, caseNotes);
       setCaseDialogOpen(false);
       setCaseId('');
       setCaseNotes('');
@@ -316,7 +308,7 @@ const ProviderDetail: React.FC = () => {
       </Box>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() -> setError(null)}>
           {error}
         </Alert>
       )}

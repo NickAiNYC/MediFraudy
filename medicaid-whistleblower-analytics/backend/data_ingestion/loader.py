@@ -2,7 +2,8 @@
 
 import logging
 import os
-from typing import Generator, Optional
+import zipfile
+from typing import Generator, Optional, Union
 
 import pandas as pd
 
@@ -95,3 +96,54 @@ def validate_schema(df: pd.DataFrame, required_columns: list[str]) -> bool:
     if missing:
         raise ValueError(f"Missing required columns: {missing}")
     return True
+
+
+def _load_data(source: Union[str, "zipfile.ZipExtFile"]) -> pd.DataFrame:
+    """Load a CSV or Parquet file into a DataFrame.
+
+    Args:
+        source: File path (str) or an open file handle from a zip archive.
+
+    Returns:
+        DataFrame with the loaded data.
+    """
+    if isinstance(source, str) and source.endswith(".parquet"):
+        return pd.read_parquet(source)
+    return pd.read_csv(source, low_memory=False)
+
+
+def detect_and_load(file_path: str) -> pd.DataFrame:
+    """Auto-detect if a file is zipped and load the first data file inside.
+
+    Supports ``.zip`` archives containing CSV or Parquet files, as well as
+    plain CSV and Parquet files.
+
+    Args:
+        file_path: Path to the dataset file (zip, csv, or parquet).
+
+    Returns:
+        DataFrame with the loaded data.
+
+    Raises:
+        FileNotFoundError: If the file does not exist.
+        ValueError: If a zip archive contains no loadable data files.
+    """
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"Dataset file not found: {file_path}")
+
+    if file_path.endswith(".zip"):
+        logger.info("Detected zip archive: %s", file_path)
+        with zipfile.ZipFile(file_path, "r") as zip_ref:
+            data_files = [
+                f
+                for f in zip_ref.namelist()
+                if f.endswith(".csv") or f.endswith(".parquet")
+            ]
+            if not data_files:
+                raise ValueError(f"No CSV or Parquet files found in {file_path}")
+            logger.info("Loading %s from archive", data_files[0])
+            with zip_ref.open(data_files[0]) as f:
+                return _load_data(f)
+
+    logger.info("Loading file directly: %s", file_path)
+    return _load_data(file_path)

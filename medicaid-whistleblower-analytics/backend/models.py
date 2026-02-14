@@ -3,6 +3,7 @@
 from datetime import datetime
 
 from sqlalchemy import (
+    Boolean,
     Column,
     Integer,
     String,
@@ -11,6 +12,7 @@ from sqlalchemy import (
     Text,
     ForeignKey,
     Date,
+    JSON,
 )
 from sqlalchemy.orm import relationship
 
@@ -30,6 +32,7 @@ class Provider(Base):
     state = Column(String(2))
     zip_code = Column(String(10))
     facility_type = Column(String(100))
+    licensed_capacity = Column(Integer)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     claims = relationship("Claim", back_populates="provider")
@@ -100,3 +103,44 @@ class TimelineEvent(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     case = relationship("Case", back_populates="timeline_events")
+
+
+class KickbackIndicator(Base):
+    """Track patterns indicative of kickback schemes.
+
+    Based on Brooklyn $68M case patterns: cash withdrawals near enrollment
+    spikes, suspicious referral networks, and sudden patient enrollment increases.
+    """
+
+    __tablename__ = "kickback_indicators"
+
+    id = Column(Integer, primary_key=True, index=True)
+    provider_id = Column(Integer, ForeignKey("providers.id"), nullable=False)
+    cash_withdrawal_pattern = Column(Boolean, default=False)
+    referral_network = Column(JSON)
+    patient_enrollment_spikes = Column(JSON)
+    notes = Column(Text)
+    detected_at = Column(DateTime, default=datetime.utcnow)
+
+    provider = relationship("Provider")
+
+
+class CapacityViolation(Base):
+    """Track billing exceeding facility capacity.
+
+    Based on Queens $120M case: facilities billing for more patients than
+    their licensed capacity allows on a given day.
+    """
+
+    __tablename__ = "capacity_violations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    provider_id = Column(Integer, ForeignKey("providers.id"), nullable=False)
+    licensed_capacity = Column(Integer)
+    daily_billed_patients = Column(JSON)
+    violation_dates = Column(JSON)
+    severity = Column(String(50))
+    notes = Column(Text)
+    detected_at = Column(DateTime, default=datetime.utcnow)
+
+    provider = relationship("Provider")

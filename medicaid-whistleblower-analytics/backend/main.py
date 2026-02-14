@@ -263,6 +263,7 @@ def _provider_dict(p: Provider) -> dict:
         "state": p.state,
         "zip_code": p.zip_code,
         "facility_type": p.facility_type,
+        "licensed_capacity": p.licensed_capacity,
     }
 
 

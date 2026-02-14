@@ -1,13 +1,22 @@
 """Tests for the FastAPI endpoints."""
 
-import pytest
-from fastapi.testclient import TestClient
-
-# We need to set up a test database before importing main
 import os
 os.environ["DATABASE_URL"] = "sqlite:///./test.db"
 
+import pytest
+from fastapi.testclient import TestClient
+
 from main import app  # noqa: E402
+from database import engine, Base  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def setup_database():
+    """Create all tables before each test, drop after."""
+    Base.metadata.create_all(bind=engine)
+    yield
+    Base.metadata.drop_all(bind=engine)
+
 
 client = TestClient(app)
 

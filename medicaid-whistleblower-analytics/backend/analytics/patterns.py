@@ -23,6 +23,17 @@ ELDERLY_CARE_CODES = [
     "T2003",  # Non-emergency transportation
 ]
 
+# Target codes from recent Brooklyn/Queens/Albany prosecutions
+TARGET_CODES = {
+    "adult_day_care": ["T2024", "T2025", "S5100", "S5101", "S5102", "S5105"],
+    "home_health": [
+        "G0151", "G0152", "G0153", "G0154",
+        "G0155", "G0156", "G0157", "G0159",
+    ],
+    "pharmacy_kickback_indicators": ["J-code range"],
+    "capacity_related": ["T2024", "T2025"],
+}
+
 
 def detect_fraud_patterns(
     db: Session, provider_id: Optional[int] = None

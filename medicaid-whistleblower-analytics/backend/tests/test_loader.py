@@ -2,11 +2,12 @@
 
 import os
 import tempfile
+import zipfile
 
 import pandas as pd
 import pytest
 
-from data_ingestion.loader import load_csv_chunks, validate_schema
+from data_ingestion.loader import load_csv_chunks, validate_schema, detect_and_load
 from data_ingestion.validator import check_nulls, check_duplicates, check_value_ranges
 from data_ingestion.transformer import (
     normalize_npi,
@@ -144,3 +145,39 @@ class TestFilterState:
         df = pd.DataFrame({"state": ["NY", "NY", "CA"]})
         result = filter_state(df, state="NY")
         assert len(result) == 2
+
+
+# ---------------------------------------------------------------------------
+# detect_and_load tests
+# ---------------------------------------------------------------------------
+
+class TestDetectAndLoad:
+    def test_loads_plain_csv(self, sample_csv):
+        df = detect_and_load(sample_csv)
+        assert len(df) == 3
+        assert "npi" in df.columns
+
+    def test_loads_csv_from_zip(self, tmp_path):
+        csv_path = tmp_path / "inner.csv"
+        csv_path.write_text(
+            "npi,name,state,amount,billing_code\n"
+            "1234567890,Provider A,NY,100.50,97110\n"
+        )
+        zip_path = str(tmp_path / "data.zip")
+        with zipfile.ZipFile(zip_path, "w") as zf:
+            zf.write(str(csv_path), "inner.csv")
+
+        df = detect_and_load(zip_path)
+        assert len(df) == 1
+        assert df["npi"].iloc[0] == 1234567890
+
+    def test_raises_on_missing_file(self):
+        with pytest.raises(FileNotFoundError):
+            detect_and_load("/nonexistent/file.csv")
+
+    def test_raises_on_empty_zip(self, tmp_path):
+        zip_path = str(tmp_path / "empty.zip")
+        with zipfile.ZipFile(zip_path, "w"):
+            pass  # empty archive
+        with pytest.raises(ValueError, match="No CSV or Parquet"):
+            detect_and_load(zip_path)

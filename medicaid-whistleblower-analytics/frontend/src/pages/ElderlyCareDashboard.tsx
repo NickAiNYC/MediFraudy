@@ -41,13 +41,9 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import WarningIcon from '@mui/icons-material/Warning';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import DownloadIcon from '@mui/icons-material/Download';
-import { 
-  getFraudPatterns, 
-  getOutliers,
-  getNYCElderlySweep,
-  getTrends,
-  downloadProviderReport,
-} from '../services/api';
+
+// Import from modular API
+import { analyticsApi, polApi, exportApi } from '../services/api';
 
 /** Target billing codes from recent Brooklyn/Queens/Albany prosecutions. */
 const TARGET_CODE_GROUPS = {
@@ -90,9 +86,9 @@ const ElderlyCareDashboard: React.FC = () => {
     // Fetch patterns
     setLoading(prev => ({ ...prev, patterns: true }));
     try {
-      const { data } = await getFraudPatterns();
+      const data = await analyticsApi.getFraudPatterns();
       setPatterns(data || []);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to fetch patterns:', err);
     } finally {
       setLoading(prev => ({ ...prev, patterns: false }));
@@ -101,9 +97,9 @@ const ElderlyCareDashboard: React.FC = () => {
     // Fetch outliers
     setLoading(prev => ({ ...prev, outliers: true }));
     try {
-      const { data } = await getOutliers(3, 'NY');
+      const data = await analyticsApi.getOutliers(3, 'NY');
       setOutliers(data || []);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to fetch outliers:', err);
     } finally {
       setLoading(prev => ({ ...prev, outliers: false }));
@@ -112,9 +108,9 @@ const ElderlyCareDashboard: React.FC = () => {
     // Fetch NYC sweep (top 20 high-risk facilities)
     setLoading(prev => ({ ...prev, sweep: true }));
     try {
-      const { data } = await getNYCElderlySweep(50, 20);
+      const data = await polApi.getNYCElderlySweep(50, 20);
       setSweepResults(data.results || []);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to fetch sweep results:', err);
     } finally {
       setLoading(prev => ({ ...prev, sweep: false }));
@@ -123,9 +119,9 @@ const ElderlyCareDashboard: React.FC = () => {
     // Fetch trends
     setLoading(prev => ({ ...prev, trends: true }));
     try {
-      const { data } = await getTrends('NY');
+      const data = await analyticsApi.getTrends('NY');
       setTrends(data || []);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to fetch trends:', err);
     } finally {
       setLoading(prev => ({ ...prev, trends: false }));
@@ -159,11 +155,7 @@ const ElderlyCareDashboard: React.FC = () => {
   };
 
   const handleDownloadReport = (providerId: number, providerName: string) => {
-    try {
-      downloadProviderReport(providerId);
-    } catch (err) {
-      console.error('Failed to download report:', err);
-    }
+    exportApi.downloadProviderReport(providerId);
   };
 
   const isLoading = Object.values(loading).some(Boolean);
@@ -433,36 +425,6 @@ const ElderlyCareDashboard: React.FC = () => {
               </Box>
             )}
           </Paper>
-        </Grid>
-
-        {/* Capacity Violation Placeholder */}
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Typography variant="h6" gutterBottom>
-            Capacity Violations (Queens $120M Pattern)
-          </Typography>
-          <Card>
-            <CardContent sx={{ height: 150, display: 'flex', alignItems: 'center' }}>
-              <Typography color="text.secondary">
-                Load the full dataset to populate this visualization. Detects facilities billing
-                more patients than their licensed capacity — the pattern from the Queens $120M case.
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* Referral Network Placeholder */}
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Typography variant="h6" gutterBottom>
-            Referral Networks (Brooklyn $68M Pattern)
-          </Typography>
-          <Card>
-            <CardContent sx={{ height: 150, display: 'flex', alignItems: 'center' }}>
-              <Typography color="text.secondary">
-                Network graph shows referring physician relationships to flag potential kickback
-                schemes — the pattern from the Brooklyn $68M case.
-              </Typography>
-            </CardContent>
-          </Card>
         </Grid>
       </Grid>
 

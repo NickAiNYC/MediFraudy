@@ -1,12 +1,18 @@
 {
-  "name": "frontend",
-  "version": "0.1.0",
+  "name": "medicaid-whistleblower-frontend",
+  "version": "1.0.0",
   "private": true,
+  "description": "Medicaid fraud detection dashboard with Pattern-of-Life forensic analysis",
+  "author": "Medicaid Whistleblower Analytics",
+  "license": "MIT",
+  "homepage": ".",
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^7.3.8",
     "@mui/material": "^7.3.8",
+    "@mui/x-data-grid": "^7.28.3",
+    "@mui/x-date-pickers": "^7.28.3",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -16,36 +22,69 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "axios": "^1.13.5",
+    "date-fns": "^4.1.0",
+    "formik": "^2.4.6",
+    "recharts": "^3.7.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-router-dom": "^7.13.0",
     "react-scripts": "5.0.1",
-    "recharts": "^3.7.0",
     "typescript": "^4.9.5",
-    "web-vitals": "^2.1.4"
+    "web-vitals": "^2.1.4",
+    "yup": "^1.6.1"
   },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "lint": "eslint src --ext ts,tsx",
+    "typecheck": "tsc --noEmit",
+    "preview": "serve -s build",
+    "clean": "rm -rf build node_modules"
   },
   "eslintConfig": {
     "extends": [
       "react-app",
       "react-app/jest"
-    ]
+    ],
+    "rules": {
+      "no-console": ["warn", { "allow": ["warn", "error"] }],
+      "react-hooks/exhaustive-deps": "warn"
+    }
   },
   "browserslist": {
     "production": [
       ">0.2%",
       "not dead",
-      "not op_mini all"
+      "not op_mini all",
+      "not ie 11",
+      "not samsung 4"
     ],
     "development": [
       "last 1 chrome version",
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "proxy": "http://localhost:8000",
+  "jest": {
+    "collectCoverageFrom": [
+      "src/**/*.{ts,tsx}",
+      "!src/index.tsx",
+      "!src/reportWebVitals.ts"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "branches": 70,
+        "functions": 70,
+        "lines": 70,
+        "statements": 70
+      }
+    }
   }
 }

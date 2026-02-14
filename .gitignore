@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+venv/
+.venv/
+env/
+
+# Node
+node_modules/
+frontend/build/
+frontend/.env.local
+frontend/.env.production
+
+# IDE
+.idea/
+*.swp
+*.swo
+
+# Environment
+.env
+*.env.local
+
+# Data files (too large for git)
+data/*.csv
+data/*.parquet
+data/*.zip
+data/*.gz
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Docker
+postgres_data/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test coverage
+htmlcov/
+.coverage
+coverage/
+
+# Test databases
+*.db

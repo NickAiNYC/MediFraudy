@@ -1,15 +1,63 @@
+# Core web framework
 fastapi>=0.104.0,<1.0.0
-uvicorn>=0.24.0,<1.0.0
+uvicorn[standard]>=0.24.0,<1.0.0
+
+# Data processing
 pandas>=2.1.0,<3.0.0
 numpy>=1.26.0,<2.0.0
+scipy>=1.11.0,<2.0.0              # Statistical functions, z-scores, gini
+polars>=0.20.0,<1.0.0              # Optional: faster than pandas for large datasets
+
+# Database
 sqlalchemy>=2.0.0,<3.0.0
 psycopg2-binary>=2.9.0,<3.0.0
-python-dotenv>=1.0.0,<2.0.0
-pytest>=7.4.0,<9.0.0
-httpx>=0.25.0,<1.0.0
+alembic>=1.12.0,<2.0.0             # Database migrations
+tenacity>=8.2.0,<9.0.0             # Retry logic for database connections
+
+# Machine learning / advanced analytics
+scikit-learn>=1.3.0,<2.0.0         # For anomaly detection algorithms
+statsmodels>=0.14.0,<1.0.0         # Time series analysis
+
+# PDF generation for attorney packages
+pdfkit>=1.0.0,<2.0.0                # HTML to PDF
+jinja2>=3.1.0,<4.0.0                # PDF templating
+
+# File handling
 aiofiles>=23.0.0,<24.0.0
+python-multipart>=0.0.6,<1.0.0     # For file uploads
+requests>=2.31.0,<3.0.0
+tqdm>=4.66.0,<5.0.0                 # Progress bars for large downloads
+
+# Configuration
+python-dotenv>=1.0.0,<2.0.0
+pydantic>=2.5.0,<3.0.0              # Settings validation
+pydantic-settings>=2.0.0,<3.0.0
+
+# Testing
+pytest>=7.4.0,<9.0.0
+pytest-cov>=4.1.0,<5.0.0            # Coverage reports
+httpx>=0.25.0,<1.0.0
+pytest-asyncio>=0.21.0,<1.0.0
+
+# Jupyter notebooks (development only)
+jupyter>=1.0.0,<2.0.0
+ipywidgets>=8.1.0,<9.0.0
 matplotlib>=3.8.0,<4.0.0
 seaborn>=0.13.0,<1.0.0
-jupyter>=1.0.0,<2.0.0
-requests>=2.31.0,<3.0.0
-tqdm>=4.66.0,<5.0.0
+plotly>=5.18.0,<6.0.0               # Interactive visualizations
+
+# CORS and security
+python-multipart>=0.0.6,<1.0.0
+bcrypt>=4.0.0,<5.0.0                # For future auth
+python-jose[cryptography]>=3.3.0,<4.0.0  # JWT tokens
+
+# Monitoring and logging
+loguru>=0.7.0,<1.0.0                 # Better logging
+prometheus-client>=0.19.0,<1.0.0     # Metrics (optional)
+
+# Data validation
+pandera>=0.17.0,<1.0.0               # DataFrame validation
+
+# Optional: LLM integration (for future AI features)
+# openai>=1.0.0,<2.0.0
+# anthropic>=0.7.0,<1.0.0

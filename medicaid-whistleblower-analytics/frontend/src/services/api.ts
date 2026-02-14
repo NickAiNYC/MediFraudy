@@ -45,6 +45,43 @@ export const compareProvider = (providerId: number) =>
 export const getFraudPatterns = (providerId?: number) =>
   api.get('/api/analytics/fraud-patterns', { params: { provider_id: providerId } });
 
+/* --- Pattern of Life --- */
+
+export const getPatternOfLife = async (providerId: number, lookbackDays: number = 365) => {
+  const response = await api.get(`/api/analytics/pattern-of-life/${providerId}`, {
+    params: { lookback_days: lookbackDays }
+  });
+  return response.data;
+};
+
+export const getCapacityViolations = async (providerId: number, lookbackDays: number = 365) => {
+  const response = await api.get(`/api/analytics/capacity-violations/${providerId}`, {
+    params: { lookback_days: lookbackDays }
+  });
+  return response.data;
+};
+
+export const getKickbackPatterns = async (providerId: number, lookbackDays: number = 365) => {
+  const response = await api.get(`/api/analytics/kickback-patterns/${providerId}`, {
+    params: { lookback_days: lookbackDays }
+  });
+  return response.data;
+};
+
+export const getBehavioralPatterns = async (providerId: number, lookbackDays: number = 365) => {
+  const response = await api.get(`/api/analytics/behavioral-patterns/${providerId}`, {
+    params: { lookback_days: lookbackDays }
+  });
+  return response.data;
+};
+
+export const getNYCElderlySweep = async (minRiskScore: number = 50, limit: number = 100) => {
+  const response = await api.get('/api/analytics/nyc-elderly-care-sweep', {
+    params: { min_risk_score: minRiskScore, limit }
+  });
+  return response.data;
+};
+
 /* --- Cases --- */
 
 export const listCases = (status?: string) =>
@@ -69,5 +106,26 @@ export const addTimelineEvent = (
 
 export const exportProviderReport = (providerId: number) =>
   api.get(`/api/export/provider/${providerId}`);
+
+// Export as service object
+export const apiService = {
+  searchProviders,
+  getProvider,
+  listAnomalies,
+  getBillingStats,
+  getOutliers,
+  getTrends,
+  compareProvider,
+  getFraudPatterns,
+  getPatternOfLife,
+  getCapacityViolations,
+  getKickbackPatterns,
+  getBehavioralPatterns,
+  getNYCElderlySweep,
+  listCases,
+  createCase,
+  addTimelineEvent,
+  exportProviderReport,
+};
 
 export default api;

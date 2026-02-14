@@ -19,6 +19,13 @@ from analytics.statistical import (
 )
 from analytics.comparison import compare_provider_to_peers
 from analytics.patterns import detect_fraud_patterns
+from analytics.pattern_of_life import (
+    comprehensive_pattern_analysis,
+    analyze_nyc_elderly_care_facilities,
+    detect_capacity_violations,
+    detect_kickback_patterns,
+    analyze_behavioral_patterns,
+)
 
 logging.basicConfig(
     level=logging.DEBUG if settings.DEBUG else logging.INFO,
@@ -162,6 +169,56 @@ def get_fraud_patterns(
 ):
     """Detect known fraud patterns."""
     return detect_fraud_patterns(db, provider_id=provider_id)
+
+
+@app.get("/api/analytics/pattern-of-life/{provider_id}")
+def get_pattern_of_life(
+    provider_id: int,
+    lookback_days: int = Query(365, ge=30, le=1825),
+    db: Session = Depends(get_db),
+):
+    """Run comprehensive pattern-of-life analysis for a provider."""
+    return comprehensive_pattern_analysis(db, provider_id, lookback_days)
+
+
+@app.get("/api/analytics/capacity-violations/{provider_id}")
+def get_capacity_violations(
+    provider_id: int,
+    lookback_days: int = Query(365, ge=30, le=1825),
+    db: Session = Depends(get_db),
+):
+    """Detect capacity violations (Queens case pattern)."""
+    return detect_capacity_violations(db, provider_id, lookback_days)
+
+
+@app.get("/api/analytics/kickback-patterns/{provider_id}")
+def get_kickback_patterns(
+    provider_id: int,
+    lookback_days: int = Query(365, ge=30, le=1825),
+    db: Session = Depends(get_db),
+):
+    """Detect kickback scheme indicators (Brooklyn case pattern)."""
+    return detect_kickback_patterns(db, provider_id, lookback_days)
+
+
+@app.get("/api/analytics/behavioral-patterns/{provider_id}")
+def get_behavioral_patterns(
+    provider_id: int,
+    lookback_days: int = Query(365, ge=30, le=1825),
+    db: Session = Depends(get_db),
+):
+    """Analyze behavioral patterns (weekend billing, batch submissions)."""
+    return analyze_behavioral_patterns(db, provider_id, lookback_days)
+
+
+@app.get("/api/analytics/nyc-elderly-care-sweep")
+def get_nyc_sweep(
+    min_risk_score: int = Query(50, ge=0, le=100),
+    limit: int = Query(100, ge=1, le=500),
+    db: Session = Depends(get_db),
+):
+    """Analyze all NYC elderly care facilities for pattern-of-life anomalies."""
+    return analyze_nyc_elderly_care_facilities(db, min_risk_score, limit)
 
 
 # --- Cases ---

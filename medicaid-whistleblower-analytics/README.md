@@ -60,6 +60,7 @@ medicaid-whistleblower-analytics/
 
 The full dataset is ~10 GB uncompressed. Recommended approach:
 
+- **Automatic Download**: Use `MedicaidDataLoader` for automatic download with progress bar and checksum verification
 - **Development**: Use `--sample=100000` flag to load 100k rows for testing
 - **Production**: Use chunking (already implemented in `loader.py`)
 - **Resources**: Minimum 16 GB RAM recommended for full load
@@ -69,17 +70,55 @@ The full dataset is ~10 GB uncompressed. Recommended approach:
 ### Data Ingestion
 
 ```python
-from data_ingestion.loader import detect_and_load, load_csv_chunks
+from data_ingestion.loader import MedicaidDataLoader, detect_and_load, load_csv_chunks
 
-# Auto-detect zip or plain file
+# Method 1: Auto-download with checksum verification (RECOMMENDED)
+loader = MedicaidDataLoader(
+    file_path="data/medicaid_claims.zip",
+    url="https://data.medicaid.gov/dataset.zip",
+    expected_checksum="your_sha256_checksum_here"
+)
+df = loader.ensure_data()  # Downloads if missing, verifies, loads
+
+# Method 2: Manual - Auto-detect zip or plain file
 df = detect_and_load("data/medicaid_claims.zip")
 
-# Or process in memory-efficient chunks
+# Method 3: Process in memory-efficient chunks
 for chunk in load_csv_chunks("data/medicaid_claims.csv", chunk_size=50000):
     process(chunk)
 ```
 
 ## Key Features
+
+### Pattern-of-Life Forensic Intelligence Layer
+NEW! Advanced forensic analysis based on recent prosecution patterns:
+- **Behavioral Pattern Analysis**: Detect weekend/holiday billing anomalies and suspicious batch submissions
+- **Capacity Violation Detection**: Identify billing exceeding licensed facility capacity (Queens $120M case pattern)
+- **Kickback Scheme Indicators**: Find beneficiary concentration and enrollment spikes (Brooklyn $68M case pattern)
+- **Comprehensive Risk Scoring**: Composite risk assessment combining all pattern modules
+- **NYC Elderly Care Sweep**: Automated analysis of all NYC facilities
+
+Access via API endpoints:
+```python
+# Get comprehensive pattern-of-life analysis for a provider
+GET /api/analytics/pattern-of-life/{provider_id}
+
+# Run NYC-wide elderly care facility sweep
+GET /api/analytics/nyc-elderly-care-sweep?min_risk_score=50&limit=100
+```
+
+### Enhanced Data Loader
+Automatic download with checksum verification:
+```python
+from data_ingestion.loader import MedicaidDataLoader
+
+loader = MedicaidDataLoader(
+    file_path="data/medicaid_claims.zip",
+    url="https://example.com/dataset.zip",
+    expected_checksum="abc123..."  # SHA-256
+)
+df = loader.ensure_data()  # Downloads if missing, verifies checksum, loads data
+```
 
 ### Analytics Engine
 - **Statistical analysis**: Mean, median, std deviation per billing code in NY
@@ -114,11 +153,57 @@ for chunk in load_csv_chunks("data/medicaid_claims.csv", chunk_size=50000):
 ## Running Tests
 
 ```bash
-# Backend
+# Backend (10 tests for pattern-of-life module)
 cd backend && python -m pytest tests/ -v
 
 # Frontend
 cd frontend && npm test
+
+# TypeScript compilation check
+cd frontend && npx tsc --noEmit
+```
+
+## API Endpoints
+
+### Pattern-of-Life Analytics
+```
+GET /api/analytics/pattern-of-life/{provider_id}
+    - Comprehensive forensic analysis (behavioral, capacity, kickback)
+    - Query params: lookback_days (default: 365, range: 30-1825)
+
+GET /api/analytics/capacity-violations/{provider_id}
+    - Detect billing exceeding licensed capacity (Queens case pattern)
+
+GET /api/analytics/kickback-patterns/{provider_id}
+    - Detect beneficiary concentration and enrollment spikes
+
+GET /api/analytics/behavioral-patterns/{provider_id}
+    - Analyze weekend billing and batch submission patterns
+
+GET /api/analytics/nyc-elderly-care-sweep
+    - Analyze all NYC elderly care facilities
+    - Query params: min_risk_score (default: 50), limit (default: 100)
+```
+
+### Core Analytics
+```
+GET /api/providers
+    - Search providers with filters
+
+GET /api/anomalies
+    - List detected anomalies with z-score filtering
+
+GET /api/analytics/stats
+    - Billing statistics by state and code
+
+GET /api/analytics/fraud-patterns
+    - Detect known fraud patterns
+
+GET /api/cases
+    - Whistleblower case management
+
+GET /api/export/provider/{provider_id}
+    - Export provider report
 ```
 
 ## License

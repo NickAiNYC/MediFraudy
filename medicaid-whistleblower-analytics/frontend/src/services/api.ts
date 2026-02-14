@@ -1,155 +1,397 @@
-import axios from 'axios';
+import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 
+// Types
+export interface Provider {
+  id: number;
+  npi: string;
+  name: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip_code?: string;
+  facility_type?: string;
+  specialty?: string;
+  licensed_capacity?: number | null;
+  created_at?: string;
+}
+
+export interface Claim {
+  id: number;
+  provider_id: number;
+  beneficiary_id?: string;
+  billing_code: string;
+  amount: number;
+  claim_date: string;
+  submitted_date?: string;
+  units?: number;
+}
+
+export interface Anomaly {
+  id: number;
+  provider_id: number;
+  billing_code: string;
+  z_score: number;
+  anomaly_type?: string;
+  notes?: string;
+  detected_at: string;
+}
+
+export interface POLAnalysis {
+  composite_risk_score: number;
+  severity: 'HIGH' | 'MEDIUM' | 'LOW';
+  analysis_modules: {
+    behavioral: { risk_score: number; risk_level: string; findings_count: number };
+    capacity_violations: { risk_score: number; risk_level: string; findings_count: number };
+    kickback_indicators: { risk_score: number; risk_level: string; findings_count: number };
+  };
+  all_findings: Array<{
+    type: string;
+    severity: string;
+    description: string;
+    evidence?: any;
+  }>;
+  total_findings: number;
+  analysis_timestamp: string;
+}
+
+export interface Case {
+  id: number;
+  case_id: string;
+  provider_id: number;
+  status: 'open' | 'under_seal' | 'filed' | 'settled';
+  whistleblower_notes?: string;
+  evidence_summary?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TimelineEvent {
+  id: number;
+  case_id: number;
+  event_date: string;
+  description: string;
+  evidence_type?: string;
+  created_at: string;
+}
+
+export interface SweepResult {
+  provider_id: number;
+  npi: string;
+  name: string;
+  city: string;
+  facility_type: string;
+  risk_score: number;
+  severity: 'HIGH' | 'MEDIUM' | 'LOW';
+  findings_count: number;
+}
+
+export interface PaginatedResponse<T> {
+  providers?: T[];
+  anomalies?: T[];
+  cases?: T[];
+  count: number;
+}
+
+// API Client Configuration
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
-const api = axios.create({
-  baseURL: API_BASE,
-  headers: { 'Content-Type': 'application/json' },
-});
+class ApiClient {
+  private client: AxiosInstance;
+
+  constructor() {
+    this.client = axios.create({
+      baseURL: API_BASE,
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 30000, // 30 second timeout
+    });
+
+    // Request interceptor for logging
+    this.client.interceptors.request.use(
+      (config) => {
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`🚀 ${config.method?.toUpperCase()} ${config.url}`, config.params || config.data);
+        }
+        return config;
+      },
+      (error) => Promise.reject(error)
+    );
+
+    // Response interceptor for error handling
+    this.client.interceptors.response.use(
+      (response) => {
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`✅ ${response.status} ${response.config.url}`, response.data);
+        }
+        return response;
+      },
+      (error) => {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('❌ API Error:', error.response?.data || error.message);
+        }
+        return Promise.reject(error);
+      }
+    );
+  }
+
+  // Generic request wrapper
+  async request<T>(config: AxiosRequestConfig): Promise<T> {
+    const response: AxiosResponse<T> = await this.client.request(config);
+    return response.data;
+  }
+}
+
+const api = new ApiClient();
 
 /* --- Providers --- */
+export const providerApi = {
+  search: (params: {
+    search?: string;
+    facility_type?: string;
+    state?: string;
+    skip?: number;
+    limit?: number;
+  }) => api.request<PaginatedResponse<Provider>>({
+    method: 'GET',
+    url: '/api/providers',
+    params,
+  }),
 
-export const searchProviders = (params: {
-  search?: string;
-  facility_type?: string;
-  state?: string;
-  skip?: number;
-  limit?: number;
-}) => api.get('/api/providers', { params });
-
-export const getProvider = (id: number) => api.get(`/api/providers/${id}`);
+  get: (id: number) => api.request<Provider>({
+    method: 'GET',
+    url: `/api/providers/${id}`,
+  }),
+};
 
 /* --- Anomalies --- */
-
-export const listAnomalies = (params: {
-  min_z_score?: number;
-  billing_code?: string;
-  skip?: number;
-  limit?: number;
-}) => api.get('/api/anomalies', { params });
+export const anomalyApi = {
+  list: (params: {
+    min_z_score?: number;
+    billing_code?: string;
+    skip?: number;
+    limit?: number;
+  }) => api.request<PaginatedResponse<Anomaly>>({
+    method: 'GET',
+    url: '/api/anomalies',
+    params,
+  }),
+};
 
 /* --- Analytics --- */
+export const analyticsApi = {
+  getBillingStats: (state: string, billingCode?: string) =>
+    api.request<any>({
+      method: 'GET',
+      url: '/api/analytics/stats',
+      params: { state, billing_code: billingCode },
+    }),
 
-export const getBillingStats = (state: string, billingCode?: string) =>
-  api.get('/api/analytics/stats', { params: { state, billing_code: billingCode } });
+  getOutliers: (zThreshold: number, state: string) =>
+    api.request<any[]>({
+      method: 'GET',
+      url: '/api/analytics/outliers',
+      params: { z_threshold: zThreshold, state },
+    }),
 
-export const getOutliers = (zThreshold: number, state: string) =>
-  api.get('/api/analytics/outliers', { params: { z_threshold: zThreshold, state } });
+  getTrends: (state: string, billingCode?: string) =>
+    api.request<any[]>({
+      method: 'GET',
+      url: '/api/analytics/trends',
+      params: { state, billing_code: billingCode },
+    }),
 
-export const getTrends = (state: string, billingCode?: string) =>
-  api.get('/api/analytics/trends', { params: { state, billing_code: billingCode } });
+  compareProvider: (providerId: number) =>
+    api.request<any>({
+      method: 'GET',
+      url: `/api/analytics/compare/${providerId}`,
+    }),
 
-export const compareProvider = (providerId: number) =>
-  api.get(`/api/analytics/compare/${providerId}`);
-
-export const getFraudPatterns = (providerId?: number) =>
-  api.get('/api/analytics/fraud-patterns', { params: { provider_id: providerId } });
+  getFraudPatterns: (providerId?: number) =>
+    api.request<any[]>({
+      method: 'GET',
+      url: '/api/analytics/fraud-patterns',
+      params: { provider_id: providerId },
+    }),
+};
 
 /* --- Pattern of Life --- */
+export const polApi = {
+  getFullAnalysis: (providerId: number, lookbackDays: number = 365) =>
+    api.request<POLAnalysis>({
+      method: 'GET',
+      url: `/api/analytics/pattern-of-life/${providerId}`,
+      params: { lookback_days: lookbackDays },
+    }),
 
-export const getPatternOfLife = async (providerId: number, lookbackDays: number = 365) => {
-  const response = await api.get(`/api/analytics/pattern-of-life/${providerId}`, {
-    params: { lookback_days: lookbackDays }
-  });
-  return response.data;
-};
+  getSummary: (providerId: number) =>
+    api.request<{ risk_score: number; risk_level: string }>({
+      method: 'GET',
+      url: `/api/analytics/pattern-of-life/${providerId}`,
+      params: { summary: true },
+    }),
 
-export const getCapacityViolations = async (providerId: number, lookbackDays: number = 365) => {
-  const response = await api.get(`/api/analytics/capacity-violations/${providerId}`, {
-    params: { lookback_days: lookbackDays }
-  });
-  return response.data;
-};
+  getBatchSummaries: (providerIds: number[]) =>
+    api.request<Record<number, { risk_score: number; risk_level: string }>>({
+      method: 'POST',
+      url: '/api/analytics/pattern-of-life/batch',
+      data: { provider_ids: providerIds },
+    }),
 
-export const getKickbackPatterns = async (providerId: number, lookbackDays: number = 365) => {
-  const response = await api.get(`/api/analytics/kickback-patterns/${providerId}`, {
-    params: { lookback_days: lookbackDays }
-  });
-  return response.data;
-};
+  getCapacityViolations: (providerId: number, lookbackDays: number = 365) =>
+    api.request<any>({
+      method: 'GET',
+      url: `/api/analytics/capacity-violations/${providerId}`,
+      params: { lookback_days: lookbackDays },
+    }),
 
-export const getBehavioralPatterns = async (providerId: number, lookbackDays: number = 365) => {
-  const response = await api.get(`/api/analytics/behavioral-patterns/${providerId}`, {
-    params: { lookback_days: lookbackDays }
-  });
-  return response.data;
-};
+  getKickbackPatterns: (providerId: number, lookbackDays: number = 365) =>
+    api.request<any>({
+      method: 'GET',
+      url: `/api/analytics/kickback-patterns/${providerId}`,
+      params: { lookback_days: lookbackDays },
+    }),
 
-export const getNYCElderlySweep = async (minRiskScore: number = 50, limit: number = 100) => {
-  const response = await api.get('/api/analytics/nyc-elderly-care-sweep', {
-    params: { min_risk_score: minRiskScore, limit }
-  });
-  return response.data;
-};
+  getBehavioralPatterns: (providerId: number, lookbackDays: number = 365) =>
+    api.request<any>({
+      method: 'GET',
+      url: `/api/analytics/behavioral-patterns/${providerId}`,
+      params: { lookback_days: lookbackDays },
+    }),
 
-// === NEW: Lightweight summary for search results ===
-export const getPatternOfLifeSummary = async (providerId: number) => {
-  const response = await api.get(`/api/analytics/pattern-of-life/${providerId}`, {
-    params: { summary: true }
-  });
-  return response.data;
-};
-
-// === NEW: Batch summaries for multiple providers ===
-export const getBatchPatternOfLifeSummaries = async (providerIds: number[]) => {
-  const response = await api.post('/api/analytics/pattern-of-life/batch', {
-    provider_ids: providerIds
-  });
-  return response.data;
+  getNYCElderlySweep: (minRiskScore: number = 50, limit: number = 100) =>
+    api.request<{ results: SweepResult[]; providers_analyzed: number; high_risk_facilities: number }>({
+      method: 'GET',
+      url: '/api/analytics/nyc-elderly-care-sweep',
+      params: { min_risk_score: minRiskScore, limit },
+    }),
 };
 
 /* --- Cases --- */
+export const caseApi = {
+  list: (status?: string) =>
+    api.request<PaginatedResponse<Case>>({
+      method: 'GET',
+      url: '/api/cases',
+      params: { status },
+    }),
 
-export const listCases = (status?: string) =>
-  api.get('/api/cases', { params: { status } });
+  create: (caseId: string, facilityId: number, notes: string) =>
+    api.request<Case>({
+      method: 'POST',
+      url: '/api/cases',
+      params: { case_id: caseId, facility_id: facilityId, whistleblower_notes: notes },
+    }),
 
-export const createCase = (caseId: string, facilityId: number, notes: string) =>
-  api.post('/api/cases', null, {
-    params: { case_id: caseId, facility_id: facilityId, whistleblower_notes: notes },
-  });
-
-export const addTimelineEvent = (
-  caseId: number,
-  eventDate: string,
-  description: string,
-  evidenceType: string,
-) =>
-  api.post(`/api/cases/${caseId}/timeline`, null, {
-    params: { event_date: eventDate, description, evidence_type: evidenceType },
-  });
+  addTimelineEvent: (
+    caseId: number,
+    eventDate: string,
+    description: string,
+    evidenceType: string,
+  ) =>
+    api.request<TimelineEvent>({
+      method: 'POST',
+      url: `/api/cases/${caseId}/timeline`,
+      params: { event_date: eventDate, description, evidence_type: evidenceType },
+    }),
+};
 
 /* --- Export --- */
+export const exportApi = {
+  getProviderReport: (providerId: number) =>
+    api.request<any>({
+      method: 'GET',
+      url: `/api/export/provider/${providerId}`,
+    }),
 
-export const exportProviderReport = (providerId: number) =>
-  api.get(`/api/export/provider/${providerId}`);
+  downloadProviderReport: (providerId: number) => {
+    window.open(`${API_BASE}/api/export/provider/${providerId}`, '_blank');
+  },
 
-// === NEW: Direct download helper ===
-export const downloadProviderReport = (providerId: number) => {
-  window.open(`${API_BASE}/api/export/provider/${providerId}`, '_blank');
+  downloadCasePackage: (caseId: number, format: 'json' | 'pdf' = 'pdf') => {
+    window.open(`${API_BASE}/api/export/case/${caseId}?format=${format}`, '_blank');
+  },
 };
 
-// Export as service object
+/* --- Health --- */
+export const healthApi = {
+  check: () =>
+    api.request<{ status: string }>({
+      method: 'GET',
+      url: '/health',
+    }),
+};
+
+// Convenience hooks for React (optional but recommended)
+export const createApiHooks = () => ({
+  useProviders: () => ({
+    search: providerApi.search,
+    get: providerApi.get,
+  }),
+  useAnomalies: () => ({
+    list: anomalyApi.list,
+  }),
+  useAnalytics: () => ({
+    ...analyticsApi,
+  }),
+  usePOL: () => ({
+    ...polApi,
+  }),
+  useCases: () => ({
+    ...caseApi,
+  }),
+  useExport: () => ({
+    ...exportApi,
+  }),
+});
+
+// Export all APIs
 export const apiService = {
-  searchProviders,
-  getProvider,
-  listAnomalies,
-  getBillingStats,
-  getOutliers,
-  getTrends,
-  compareProvider,
-  getFraudPatterns,
-  getPatternOfLife,
-  getCapacityViolations,
-  getKickbackPatterns,
-  getBehavioralPatterns,
-  getNYCElderlySweep,
-  getPatternOfLifeSummary,      // Added
-  getBatchPatternOfLifeSummaries, // Added
-  listCases,
-  createCase,
-  addTimelineEvent,
-  exportProviderReport,
-  downloadProviderReport,       // Added
+  providers: providerApi,
+  anomalies: anomalyApi,
+  analytics: analyticsApi,
+  pol: polApi,
+  cases: caseApi,
+  export: exportApi,
+  health: healthApi,
 };
 
-export default api;
+// Default export for backward compatibility
+export default {
+  // Providers (legacy)
+  searchProviders: providerApi.search,
+  getProvider: providerApi.get,
+  
+  // Anomalies (legacy)
+  listAnomalies: anomalyApi.list,
+  
+  // Analytics (legacy)
+  getBillingStats: analyticsApi.getBillingStats,
+  getOutliers: analyticsApi.getOutliers,
+  getTrends: analyticsApi.getTrends,
+  compareProvider: analyticsApi.compareProvider,
+  getFraudPatterns: analyticsApi.getFraudPatterns,
+  
+  // Pattern of Life (legacy)
+  getPatternOfLife: polApi.getFullAnalysis,
+  getPatternOfLifeSummary: polApi.getSummary,
+  getBatchPatternOfLifeSummaries: polApi.getBatchSummaries,
+  getCapacityViolations: polApi.getCapacityViolations,
+  getKickbackPatterns: polApi.getKickbackPatterns,
+  getBehavioralPatterns: polApi.getBehavioralPatterns,
+  getNYCElderlySweep: polApi.getNYCElderlySweep,
+  
+  // Cases (legacy)
+  listCases: caseApi.list,
+  createCase: caseApi.create,
+  addTimelineEvent: caseApi.addTimelineEvent,
+  
+  // Export (legacy)
+  exportProviderReport: exportApi.getProviderReport,
+  downloadProviderReport: exportApi.downloadProviderReport,
+  downloadCasePackage: exportApi.downloadCasePackage,
+  
+  // Health
+  checkHealth: healthApi.check,
+  
+  // Service object with all APIs
+  apiService,
+};

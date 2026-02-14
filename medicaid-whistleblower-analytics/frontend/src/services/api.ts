@@ -82,6 +82,22 @@ export const getNYCElderlySweep = async (minRiskScore: number = 50, limit: numbe
   return response.data;
 };
 
+// === NEW: Lightweight summary for search results ===
+export const getPatternOfLifeSummary = async (providerId: number) => {
+  const response = await api.get(`/api/analytics/pattern-of-life/${providerId}`, {
+    params: { summary: true }
+  });
+  return response.data;
+};
+
+// === NEW: Batch summaries for multiple providers ===
+export const getBatchPatternOfLifeSummaries = async (providerIds: number[]) => {
+  const response = await api.post('/api/analytics/pattern-of-life/batch', {
+    provider_ids: providerIds
+  });
+  return response.data;
+};
+
 /* --- Cases --- */
 
 export const listCases = (status?: string) =>
@@ -107,6 +123,11 @@ export const addTimelineEvent = (
 export const exportProviderReport = (providerId: number) =>
   api.get(`/api/export/provider/${providerId}`);
 
+// === NEW: Direct download helper ===
+export const downloadProviderReport = (providerId: number) => {
+  window.open(`${API_BASE}/api/export/provider/${providerId}`, '_blank');
+};
+
 // Export as service object
 export const apiService = {
   searchProviders,
@@ -122,10 +143,13 @@ export const apiService = {
   getKickbackPatterns,
   getBehavioralPatterns,
   getNYCElderlySweep,
+  getPatternOfLifeSummary,      // Added
+  getBatchPatternOfLifeSummaries, // Added
   listCases,
   createCase,
   addTimelineEvent,
   exportProviderReport,
+  downloadProviderReport,       // Added
 };
 
 export default api;

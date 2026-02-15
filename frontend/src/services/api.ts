@@ -61,8 +61,35 @@ export interface Case {
   status: string;
   priority: string;
   description?: string;
+  assigned_to?: string;
+  estimated_fraud_amount?: number;
+  detection_source?: string;
   created_at: string;
   updated_at?: string;
+  opened_at?: string;
+  due_date?: string;
+}
+
+export interface InvestigationQueueItem {
+  id: number;
+  case_number: string;
+  provider_id: number;
+  status: string;
+  priority: string;
+  assigned_to?: string;
+  description?: string;
+  estimated_fraud_amount?: number;
+  detection_source?: string;
+  opened_at?: string;
+  due_date?: string;
+}
+
+export interface AuditTrailEntry {
+  id: number;
+  user_id: string;
+  action: string;
+  details: Record<string, any>;
+  timestamp: string;
 }
 
 export interface TimelineEvent {
@@ -488,6 +515,54 @@ export const caseApi = {
       method: 'POST',
       url: `/api/cases/${caseId}/timeline`,
       params: { event_date: eventDate, description, evidence_type: evidenceType },
+    }),
+
+  getInvestigationQueue: (params?: {
+    status?: string;
+    priority?: string;
+    assigned_to?: string;
+    sort_by?: string;
+    skip?: number;
+    limit?: number;
+  }) =>
+    api.request<{ total: number; queue: InvestigationQueueItem[] }>({
+      method: 'GET',
+      url: '/api/cases/queue/investigation',
+      params,
+    }),
+
+  addNote: (caseId: number, note: string, userId: string = 'system') =>
+    api.request<any>({
+      method: 'POST',
+      url: `/api/cases/${caseId}/notes`,
+      params: { note, user_id: userId },
+    }),
+
+  addTag: (caseId: number, tag: string) =>
+    api.request<any>({
+      method: 'POST',
+      url: `/api/cases/${caseId}/tags`,
+      params: { tag },
+    }),
+
+  getAuditTrail: (caseId: number) =>
+    api.request<{ case_id: number; audit_trail: AuditTrailEntry[] }>({
+      method: 'GET',
+      url: `/api/cases/${caseId}/audit-trail`,
+    }),
+
+  assignInvestigator: (caseId: number, investigatorId: string) =>
+    api.request<Case>({
+      method: 'PUT',
+      url: `/api/cases/${caseId}/assign`,
+      params: { investigator_id: investigatorId },
+    }),
+
+  updateStatus: (caseId: number, status: string) =>
+    api.request<Case>({
+      method: 'PUT',
+      url: `/api/cases/${caseId}/status`,
+      params: { status },
     }),
 };
 

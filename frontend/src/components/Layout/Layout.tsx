@@ -37,6 +37,7 @@ import {
   Assessment as AssessmentIcon,
   Storage as StorageIcon,
   Gavel as GavelIcon,
+  Queue as QueueIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -84,8 +85,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const menuItems = [
     { text: 'Intelligence Overview', icon: <DashboardIcon />, path: '/dashboard' },
     { text: 'Provider Risk Index', icon: <AssessmentIcon />, path: '/providers' },
-    { text: 'Network Graph', icon: <GraphIcon />, path: '/fraud-rings' },
+    { text: 'Network Explorer', icon: <GraphIcon />, path: '/fraud-rings' },
     { text: 'Case Builder', icon: <CasesIcon />, path: '/cases' },
+    { text: 'Investigation Queue', icon: <QueueIcon />, path: '/investigation-queue' },
     { text: 'Alerts', icon: <WarningIcon />, path: '/alerts' },
     { text: 'Evidence Vault', icon: <StorageIcon />, path: '/evidence' },
     { text: 'Legal Assistant', icon: <GavelIcon />, path: '/agent' },

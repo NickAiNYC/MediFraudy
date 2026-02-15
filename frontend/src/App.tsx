@@ -8,6 +8,11 @@ const MasterDashboard = React.lazy(() => import('./pages/MasterDashboard'));
 const ProviderDetail = React.lazy(() => import('./pages/ProviderDetail'));
 const Settings = React.lazy(() => import('./pages/Settings'));
 const Profile = React.lazy(() => import('./pages/Profile'));
+const FraudRings = React.lazy(() => import('./pages/FraudRings'));
+const Providers = React.lazy(() => import('./pages/Providers'));
+const PatternOfLife = React.lazy(() => import('./pages/PatternOfLife'));
+const Cases = React.lazy(() => import('./pages/Cases'));
+const HomeCarePage = React.lazy(() => import('./pages/HomeCarePage'));
 
 function App() {
   return (
@@ -31,6 +36,11 @@ function App() {
           <Route path="/provider/:id" element={<ProviderDetail />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/fraud-rings" element={<FraudRings />} />
+          <Route path="/providers" element={<Providers />} />
+          <Route path="/pattern-of-life" element={<PatternOfLife />} />
+          <Route path="/cases" element={<Cases />} />
+          <Route path="/home-care" element={<HomeCarePage />} />
           
           {/* 404 Fallback */}
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

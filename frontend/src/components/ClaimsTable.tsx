@@ -13,17 +13,20 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { motion } from 'framer-motion';
 
 interface ClaimRow {
+  claimId?: string;
   claimDate: string;
   beneficiaryId: string;
   billingCode: string;
   amount: number;
-  units: number;
+  units?: number;
+  aideId?: string;
   violationType?: string;
   isViolation: boolean;
 }
 
 interface ClaimsTableProps {
   data: ClaimRow[];
+  providerId?: string;
   onBeneficiaryClick?: (beneficiaryId: string) => void;
 }
 
@@ -34,10 +37,17 @@ const formatDate = (dateStr: string) => {
 
 const columnHelper = createColumnHelper<ClaimRow>();
 
-export const ClaimsTable: React.FC<ClaimsTableProps> = ({ data, onBeneficiaryClick }) => {
+export const ClaimsTable: React.FC<ClaimsTableProps> = ({ data, providerId, onBeneficiaryClick }) => {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
   const parentRef = useRef<HTMLDivElement>(null);
+
+  const violationCount = useMemo(() => data.filter((d) => d.isViolation).length, [data]);
+  const totalAmount = useMemo(() => data.reduce((sum, d) => sum + d.amount, 0), [data]);
+  const violationAmount = useMemo(
+    () => data.filter((d) => d.isViolation).reduce((sum, d) => sum + d.amount, 0),
+    [data]
+  );
 
   const columns = useMemo(
     () => [
@@ -54,6 +64,21 @@ export const ClaimsTable: React.FC<ClaimsTableProps> = ({ data, onBeneficiaryCli
             }}
           >
             {formatDate(info.getValue())}
+          </Typography>
+        ),
+      }),
+      columnHelper.accessor('claimId', {
+        header: 'Claim ID',
+        cell: (info) => (
+          <Typography
+            variant="body2"
+            sx={{
+              fontFamily: '"JetBrains Mono", monospace',
+              fontSize: '0.7rem',
+              color: '#64748b',
+            }}
+          >
+            {info.getValue() || '—'}
           </Typography>
         ),
       }),
@@ -79,19 +104,36 @@ export const ClaimsTable: React.FC<ClaimsTableProps> = ({ data, onBeneficiaryCli
           </Typography>
         ),
       }),
-      columnHelper.accessor('billingCode', {
-        header: 'Billing Code',
+      columnHelper.accessor('aideId', {
+        header: 'Aide',
         cell: (info) => (
           <Typography
             variant="body2"
             sx={{
               fontFamily: '"JetBrains Mono", monospace',
-              fontSize: '0.8rem',
-              color: '#cbd5e1',
+              fontSize: '0.7rem',
+              color: '#64748b',
             }}
           >
-            {info.getValue()}
+            {info.getValue() || '—'}
           </Typography>
+        ),
+      }),
+      columnHelper.accessor('billingCode', {
+        header: 'Code',
+        cell: (info) => (
+          <Chip
+            label={info.getValue()}
+            size="small"
+            variant="outlined"
+            sx={{
+              fontFamily: '"JetBrains Mono", monospace',
+              fontSize: '0.65rem',
+              color: '#cbd5e1',
+              borderColor: '#334155',
+              height: 22,
+            }}
+          />
         ),
       }),
       columnHelper.accessor('amount', {
@@ -115,12 +157,13 @@ export const ClaimsTable: React.FC<ClaimsTableProps> = ({ data, onBeneficiaryCli
         cell: (info) => {
           const v = info.getValue();
           if (!v) return <Typography variant="body2" sx={{ color: '#475569' }}>—</Typography>;
-          const chipColor =
-            v === 'EVV_MISSING'
-              ? { bg: 'rgba(239,68,68,0.15)', text: '#f87171' }
-              : v === 'CAPACITY'
-              ? { bg: 'rgba(249,115,22,0.15)', text: '#fb923c' }
-              : { bg: 'rgba(245,158,11,0.15)', text: '#fbbf24' };
+          const colorMap: Record<string, { bg: string; text: string }> = {
+            EVV_MISSING: { bg: 'rgba(239,68,68,0.15)', text: '#f87171' },
+            CAPACITY: { bg: 'rgba(249,115,22,0.15)', text: '#fb923c' },
+            IMPOSSIBLE_SCHEDULE: { bg: 'rgba(245,158,11,0.15)', text: '#fbbf24' },
+            BENEFICIARY_OVERLAP: { bg: 'rgba(168,85,247,0.15)', text: '#c084fc' },
+          };
+          const chipColor = colorMap[v] || { bg: 'rgba(245,158,11,0.15)', text: '#fbbf24' };
           return (
             <Chip
               label={v.replace(/_/g, ' ')}
@@ -129,8 +172,9 @@ export const ClaimsTable: React.FC<ClaimsTableProps> = ({ data, onBeneficiaryCli
                 bgcolor: chipColor.bg,
                 color: chipColor.text,
                 fontWeight: 700,
-                fontSize: '0.65rem',
-                height: 24,
+                fontSize: '0.6rem',
+                height: 22,
+                border: `1px solid ${chipColor.text}30`,
               }}
             />
           );
@@ -162,11 +206,13 @@ export const ClaimsTable: React.FC<ClaimsTableProps> = ({ data, onBeneficiaryCli
   const handleExport = () => {
     const filteredRows = table.getFilteredRowModel().rows;
     const csvContent = [
-      ['Date', 'Beneficiary', 'Billing Code', 'Amount', 'Violation'].join(','),
+      ['Date', 'Claim ID', 'Beneficiary', 'Aide', 'Billing Code', 'Amount', 'Violation'].join(','),
       ...filteredRows.map((row) =>
         [
           row.original.claimDate,
+          row.original.claimId || '',
           row.original.beneficiaryId,
+          row.original.aideId || '',
           row.original.billingCode,
           row.original.amount,
           row.original.violationType || '',
@@ -177,7 +223,7 @@ export const ClaimsTable: React.FC<ClaimsTableProps> = ({ data, onBeneficiaryCli
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'claims_evidence.csv';
+    a.download = `claims_evidence${providerId ? `_${providerId}` : ''}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -189,46 +235,100 @@ export const ClaimsTable: React.FC<ClaimsTableProps> = ({ data, onBeneficiaryCli
       transition={{ duration: 0.5, delay: 0.3 }}
     >
       <Box>
-        {/* Toolbar */}
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-          <TextField
-            size="small"
-            placeholder="Search claims..."
-            value={globalFilter ?? ''}
-            onChange={(e) => setGlobalFilter(e.target.value)}
-            sx={{
-              width: 300,
-              '& .MuiOutlinedInput-root': {
-                bgcolor: '#1e293b',
-                color: '#f1f5f9',
-                borderRadius: 2,
-                '& fieldset': { borderColor: '#334155' },
-                '&:hover fieldset': { borderColor: '#475569' },
-                '&.Mui-focused fieldset': { borderColor: '#10b981' },
-              },
-              '& .MuiInputBase-input::placeholder': {
-                color: '#64748b',
-              },
-            }}
-          />
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Typography variant="body2" sx={{ color: '#64748b', fontFamily: '"JetBrains Mono", monospace' }}>
-              {rows.length.toLocaleString()} rows
+        {/* Summary Stats */}
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2, mb: 2 }}>
+          <Box sx={{ bgcolor: '#1e293b', borderRadius: 2, p: 1.5 }}>
+            <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Total Claims
             </Typography>
-            <Button
-              variant="contained"
-              size="small"
-              onClick={handleExport}
-              sx={{
-                bgcolor: '#10b981',
-                '&:hover': { bgcolor: '#059669' },
-                fontWeight: 600,
-                borderRadius: 2,
-              }}
-            >
-              Export CSV
-            </Button>
+            <Typography variant="h6" sx={{ fontWeight: 700, color: '#f1f5f9', fontFamily: '"JetBrains Mono", monospace' }}>
+              {data.length.toLocaleString()}
+            </Typography>
           </Box>
+          <Box sx={{ bgcolor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 2, p: 1.5 }}>
+            <Typography variant="caption" sx={{ color: '#fca5a5', fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Violations
+            </Typography>
+            <Typography variant="h6" sx={{ fontWeight: 700, color: '#f87171', fontFamily: '"JetBrains Mono", monospace' }}>
+              {violationCount.toLocaleString()}
+            </Typography>
+          </Box>
+          <Box sx={{ bgcolor: '#1e293b', borderRadius: 2, p: 1.5 }}>
+            <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Total Amount
+            </Typography>
+            <Typography variant="h6" sx={{ fontWeight: 700, color: '#f1f5f9', fontFamily: '"JetBrains Mono", monospace' }}>
+              ${totalAmount >= 1000000 ? `${(totalAmount / 1000000).toFixed(2)}M` : totalAmount.toLocaleString()}
+            </Typography>
+          </Box>
+          <Box sx={{ bgcolor: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.2)', borderRadius: 2, p: 1.5 }}>
+            <Typography variant="caption" sx={{ color: '#fdba74', fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Violation Amount
+            </Typography>
+            <Typography variant="h6" sx={{ fontWeight: 700, color: '#fb923c', fontFamily: '"JetBrains Mono", monospace' }}>
+              ${violationAmount >= 1000000 ? `${(violationAmount / 1000000).toFixed(2)}M` : violationAmount.toLocaleString()}
+            </Typography>
+          </Box>
+        </Box>
+
+        {/* Toolbar */}
+        <Box sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          mb: 2,
+          p: 2,
+          bgcolor: '#0f172a',
+          borderRadius: 2,
+          border: '1px solid #1e293b',
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <TextField
+              size="small"
+              placeholder="Search claims..."
+              value={globalFilter ?? ''}
+              onChange={(e) => setGlobalFilter(e.target.value)}
+              sx={{
+                width: 300,
+                '& .MuiOutlinedInput-root': {
+                  bgcolor: '#1e293b',
+                  color: '#f1f5f9',
+                  borderRadius: 2,
+                  fontSize: '0.85rem',
+                  '& fieldset': { borderColor: '#334155' },
+                  '&:hover fieldset': { borderColor: '#475569' },
+                  '&.Mui-focused fieldset': { borderColor: '#10b981' },
+                },
+                '& .MuiInputBase-input::placeholder': {
+                  color: '#64748b',
+                },
+              }}
+            />
+            <Chip
+              label={`${rows.length.toLocaleString()} results`}
+              size="small"
+              sx={{
+                bgcolor: 'rgba(148,163,184,0.1)',
+                color: '#94a3b8',
+                fontSize: '0.65rem',
+                fontFamily: '"JetBrains Mono", monospace',
+              }}
+            />
+          </Box>
+          <Button
+            variant="contained"
+            size="small"
+            onClick={handleExport}
+            sx={{
+              bgcolor: '#10b981',
+              '&:hover': { bgcolor: '#059669' },
+              fontWeight: 600,
+              borderRadius: 2,
+              fontSize: '0.75rem',
+            }}
+          >
+            Export CSV
+          </Button>
         </Box>
 
         {/* Virtualized Table */}
@@ -255,7 +355,7 @@ export const ClaimsTable: React.FC<ClaimsTableProps> = ({ data, onBeneficiaryCli
                         px: 2,
                         py: 1.5,
                         textAlign: 'left',
-                        fontSize: '0.7rem',
+                        fontSize: '0.65rem',
                         fontWeight: 600,
                         color: '#94a3b8',
                         textTransform: 'uppercase',
@@ -263,6 +363,7 @@ export const ClaimsTable: React.FC<ClaimsTableProps> = ({ data, onBeneficiaryCli
                         cursor: 'pointer',
                         userSelect: 'none',
                         '&:hover': { color: '#f1f5f9' },
+                        borderBottom: '1px solid #334155',
                       }}
                     >
                       {flexRender(header.column.columnDef.header, header.getContext())}
@@ -281,7 +382,8 @@ export const ClaimsTable: React.FC<ClaimsTableProps> = ({ data, onBeneficiaryCli
                     key={row.id}
                     sx={{
                       borderBottom: '1px solid #1e293b',
-                      bgcolor: row.original.isViolation ? 'rgba(239,68,68,0.05)' : 'transparent',
+                      bgcolor: row.original.isViolation ? 'rgba(239,68,68,0.04)' : 'transparent',
+                      transition: 'background-color 0.15s ease',
                       '&:hover': { bgcolor: 'rgba(30,41,59,0.5)' },
                       height: virtualRow.size,
                     }}

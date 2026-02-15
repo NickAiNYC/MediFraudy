@@ -5,6 +5,7 @@ import Layout from './components/Layout/Layout';
 
 // Lazy load pages for better performance
 const MasterDashboard = React.lazy(() => import('./pages/MasterDashboard'));
+const ProviderDetail = React.lazy(() => import('./pages/ProviderDetail'));
 const Settings = React.lazy(() => import('./pages/Settings'));
 const Profile = React.lazy(() => import('./pages/Profile'));
 
@@ -18,7 +19,7 @@ function App() {
           alignItems: 'center', 
           height: '50vh' 
         }}>
-          <CircularProgress />
+          <CircularProgress sx={{ color: '#10b981' }} />
         </Box>
       }>
         <Routes>
@@ -27,6 +28,7 @@ function App() {
           
           {/* Main Routes - Everything in one master dashboard */}
           <Route path="/dashboard" element={<MasterDashboard />} />
+          <Route path="/provider/:id" element={<ProviderDetail />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/profile" element={<Profile />} />
           

@@ -54,6 +54,7 @@ from routes.data_quality import router as data_quality_router
 from api.v1.routes.intelligence import router as intelligence_router
 from api.v1.routes.auth import router as auth_router
 from api.v1.routes.agent import router as agent_router
+from health import router as health_router
 from analytics.statistical import (
     calculate_billing_stats,
     detect_outliers,
@@ -105,6 +106,7 @@ app.include_router(data_quality_router)
 app.include_router(intelligence_router)
 app.include_router(auth_router)
 app.include_router(agent_router)
+app.include_router(health_router)
 
 # Enterprise middleware — rate limiting & audit logging
 app.add_middleware(
@@ -124,19 +126,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-# --- Health ---
-
-
-@app.get("/health")
-async def health_check():
-    """Return service health status."""
-    return {
-        "status": "healthy",
-        "version": "2.1.0",
-        "environment": settings.ENVIRONMENT,
-    }
 
 
 # --- Providers ---

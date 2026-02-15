@@ -1,0 +1,9 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "cd backend && gunicorn main:app --workers 2 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 120"
+healthcheckPath = "/health"
+healthcheckTimeout = 10
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 10

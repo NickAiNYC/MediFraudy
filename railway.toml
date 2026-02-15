@@ -1,9 +1,30 @@
 [build]
-builder = "nixpacks"
+builder = "NIXPACKS"
+buildCommand = "echo 'Building MediFraudy...'"
 
 [deploy]
-startCommand = "cd backend && gunicorn main:app --workers 2 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 120"
-healthcheckPath = "/health"
-healthcheckTimeout = 10
-restartPolicyType = "on_failure"
+numReplicas = 1
+restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
+healthcheckPath = "/health"
+healthcheckTimeout = 100
+
+# API Service
+[[services]]
+name = "api"
+startCommand = "cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT --workers 4 --proxy-headers --forwarded-allow-ips='*'"
+
+[services.healthcheck]
+path = "/health"
+interval = 30
+timeout = 10
+
+# Worker Service (Background Jobs)
+[[services]]
+name = "worker"
+startCommand = "cd backend && celery -A tasks.celery_app worker --loglevel=info --concurrency=4 --max-tasks-per-child=1000"
+
+# Beat Service (Scheduled Tasks)
+[[services]]
+name = "beat"
+startCommand = "cd backend && celery -A tasks.celery_app beat --loglevel=info"

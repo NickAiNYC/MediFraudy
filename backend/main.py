@@ -12,32 +12,21 @@ import logging
 from contextlib import asynccontextmanager
 from datetime import date
 from typing import Optional
+import time
+import sys
+import uuid
 
-from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi import FastAPI, Depends, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.orm import Session
 
 from config import settings
-
-# Initialize Sentry error tracking if configured
-if settings.SENTRY_DSN:
-    try:
-        import sentry_sdk
-        from sentry_sdk.integrations.fastapi import FastApiIntegration
-        from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
-
-        sentry_sdk.init(
-            dsn=settings.SENTRY_DSN,
-            environment=settings.ENVIRONMENT,
-            traces_sample_rate=0.1 if settings.is_production else 1.0,
-            integrations=[FastApiIntegration(), SqlalchemyIntegration()],
-        )
-    except ImportError:
-        pass  # sentry-sdk not installed, skip
-from core.logging import setup_logging
+from core.logging_config import setup_logging
 from core.middleware import RateLimitMiddleware, AuditLoggingMiddleware
 from database import get_db, engine, Base
+from health import router as health_router
 from models import (
     Provider, Claim, Anomaly, Case, TimelineEvent,
     InvestigationCase, ProviderScreening, PeerGroup,
@@ -70,18 +59,66 @@ from analytics.pattern_of_life import (
     analyze_behavioral_patterns,
 )
 
+# Sentry for error tracking
+try:
+    import sentry_sdk
+    from sentry_sdk.integrations.fastapi import FastApiIntegration
+    from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+    
+    if settings.SENTRY_DSN:
+        sentry_sdk.init(
+            dsn=settings.SENTRY_DSN,
+            integrations=[
+                FastApiIntegration(),
+                SqlalchemyIntegration()
+            ],
+            traces_sample_rate=0.1,
+            environment=os.getenv("RAILWAY_ENVIRONMENT", "development"),
+            release=f"medifraudy@1.0.0"
+        )
+except ImportError:
+    pass
+
 # Structured logging setup
-setup_logging(level=settings.LOG_LEVEL)
+setup_logging()
 logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Create database tables on startup."""
-    logger.info("Starting NYC Medicaid Fraud Intelligence Operating System")
+    """
+    Startup and shutdown events.
+    Validates environment, connects to dependencies.
+    """
+    logger.info("Starting MediFraudy API...")
+    
+    # Validate critical environment variables
+    required_vars = ["DATABASE_URL", "SECRET_KEY"]
+    missing_vars = [var for var in required_vars if not getattr(settings, var.upper(), None)]
+    if missing_vars and settings.ENVIRONMENT == "production":
+        logger.error(f"Missing required environment variables: {missing_vars}")
+        sys.exit(1)
+    
+    # Test database connection
+    try:
+        with engine.connect() as conn:
+            conn.execute("SELECT 1")
+        logger.info("Database connection successful")
+    except Exception as e:
+        logger.error(f"Database connection failed: {e}")
+        if settings.ENVIRONMENT == "production":
+            sys.exit(1)
+    
+    # Create database tables on startup
     Base.metadata.create_all(bind=engine)
-    yield
-    logger.info("Shutting down API")
+    
+    logger.info("MediFraudy API started successfully")
+    
+    yield  # Application runs here
+    
+    # Shutdown
+    logger.info("Shutting down MediFraudy API...")
+    engine.dispose()
 
 
 app = FastAPI(
@@ -93,20 +130,101 @@ app = FastAPI(
     ),
     version="2.0.0",
     lifespan=lifespan,
+    docs_url="/api/docs" if settings.DEBUG else None,
+    redoc_url="/api/redoc" if settings.DEBUG else None,
 )
 
-app.include_router(export_router, prefix="/api")
-app.include_router(graph.router)
-app.include_router(nemt.router)
-app.include_router(cases.router)
-app.include_router(analytics_trigger.router)
-app.include_router(homecare.router)
-app.include_router(api_keys_router)
-app.include_router(data_quality_router)
-app.include_router(intelligence_router)
-app.include_router(auth_router)
-app.include_router(agent_router)
+# Include health router first (no middleware)
 app.include_router(health_router)
+
+# CORS Middleware
+cors_origins = settings.CORS_ORIGINS
+if isinstance(cors_origins, str):
+    cors_origins = [origin.strip() for origin in cors_origins.split(",")]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["X-Request-ID", "X-Response-Time"]
+)
+
+# Trusted Host Middleware (prevent host header attacks)
+if not settings.DEBUG:
+    allowed_hosts = ["*"] if cors_origins == ["*"] else [origin.replace("https://", "").replace("http://", "") for origin in cors_origins]
+    try:
+        app.add_middleware(
+            TrustedHostMiddleware,
+            allowed_hosts=allowed_hosts
+        )
+    except:
+        pass  # TrustedHostMiddleware may not be available in all environments
+
+# Request ID and timing middleware
+@app.middleware("http")
+async def add_request_metadata(request: Request, call_next):
+    """Add request ID and timing to all requests"""
+    request_id = str(uuid.uuid4())
+    request.state.request_id = request_id
+    
+    start_time = time.time()
+    
+    response = await call_next(request)
+    
+    process_time = time.time() - start_time
+    response.headers["X-Request-ID"] = request_id
+    response.headers["X-Response-Time"] = str(process_time)
+    
+    # Log slow requests
+    if process_time > 1.0:
+        logger.warning(
+            f"Slow request: {request.method} {request.url.path} "
+            f"took {process_time:.2f}s"
+        )
+    
+    return response
+
+
+# Security headers middleware
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    """Add security headers to all responses"""
+    response = await call_next(request)
+    
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Content-Security-Policy"] = "default-src 'self'"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    
+    return response
+
+
+# Global exception handler
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Catch-all exception handler with Sentry logging"""
+    logger.error(f"Unhandled exception: {exc}", exc_info=True)
+    
+    # Report to Sentry
+    try:
+        if settings.SENTRY_DSN:
+            import sentry_sdk
+            sentry_sdk.capture_exception(exc)
+    except:
+        pass
+    
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "detail": "Internal server error",
+            "request_id": getattr(request.state, "request_id", None)
+        }
+    )
+
 
 # Enterprise middleware — rate limiting & audit logging
 app.add_middleware(
@@ -119,13 +237,30 @@ app.add_middleware(
     enabled=True,
 )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
+# Include routers
+app.include_router(export_router, prefix="/api")
+app.include_router(graph.router)
+app.include_router(nemt.router)
+app.include_router(cases.router)
+app.include_router(analytics_trigger.router)
+app.include_router(homecare.router)
+app.include_router(intelligence_router)
+app.include_router(auth_router)
+app.include_router(agent_router)
+
+
+# --- Root Endpoint ---
+
+@app.get("/")
+async def root():
+    """API root endpoint"""
+    return {
+        "service": "MediFraudy API",
+        "version": "2.0.0",
+        "status": "operational",
+        "docs": "/api/docs" if settings.DEBUG else None
+    }
 
 
 # --- Providers ---
@@ -391,3 +526,14 @@ def _case_dict(c: Case) -> dict:
         "created_at": str(c.created_at) if c.created_at else None,
         "updated_at": str(c.updated_at) if c.updated_at else None,
     }
+
+
+if __name__ == "__main__":
+    import uvicorn
+    import os
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=int(os.getenv("PORT", 8000)),
+        reload=settings.DEBUG
+    )

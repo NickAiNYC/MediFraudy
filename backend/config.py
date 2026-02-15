@@ -23,9 +23,18 @@ class Settings:
     # Application
     DEBUG: bool = os.getenv("DEBUG", "False").lower() in ("true", "1", "yes", "t")
     SECRET_KEY: str = os.getenv("SECRET_KEY", "development_secret_key")
+    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", os.getenv("SECRET_KEY", "development_secret_key"))
+    JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "480"))
+    ENCRYPTION_KEY: Optional[str] = os.getenv("ENCRYPTION_KEY")
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")  # development, staging, production
     HOST: str = os.getenv("HOST", "0.0.0.0")
     PORT: int = int(os.getenv("PORT", "8000"))
+    VERSION: str = "1.0.0"
+    
+    # Sentry
+    SENTRY_DSN: Optional[str] = os.getenv("SENTRY_DSN")
+    RAILWAY_ENVIRONMENT: Optional[str] = os.getenv("RAILWAY_ENVIRONMENT")
     
     # Dataset
     MEDICAID_DATASET_URL: Optional[str] = os.getenv("MEDICAID_DATASET_URL")

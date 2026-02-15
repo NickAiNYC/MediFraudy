@@ -1,117 +1,327 @@
-# MediFraudy — Deployment Guide
+# MediFraudy Production Deployment Guide
 
 ## Prerequisites
 
-- Python 3.11+
-- PostgreSQL 14+
-- Redis 7+ (optional, for caching)
+- Railway account (https://railway.app)
+- GitHub repository access
+- Domain name (optional)
+- PostgreSQL database URL (Railway provides this)
+- Redis URL (Railway provides this)
 
-## Environment Setup
+## Quick Start
 
-1. **Copy the environment template:**
-   ```bash
-   cp .env.production.example .env
-   ```
+### Step 1: Create Railway Project
 
-2. **Generate secrets:**
-   ```bash
-   # SECRET_KEY
-   openssl rand -hex 32
+1. Go to https://railway.app/new
+2. Click "Deploy from GitHub repo"
+3. Select `NickAiNYC/MediFraudy`
+4. Railway will auto-detect configuration from `railway.toml`
 
-   # Or using Python:
-   python3 -c "import secrets; print(secrets.token_hex(32))"
-   ```
+### Step 2: Add PostgreSQL Database
 
-3. **Configure DATABASE_URL** with your PostgreSQL connection string.
+1. In Railway project dashboard, click "New"
+2. Select "Database" → "PostgreSQL"
+3. Database will provision automatically
+4. Connection string available as `${{Postgres.DATABASE_URL}}`
 
-4. **Set ENVIRONMENT=production** to enable production validations.
+### Step 3: Add Redis
 
-## Local Development
+1. Click "New" → "Database" → "Redis"
+2. Connection string available as `${{Redis.REDIS_URL}}`
 
-```bash
-# Start services (PostgreSQL + Redis)
-docker-compose up -d postgres redis
+### Step 4: Configure Environment Variables
 
-# Install backend dependencies
-cd backend
-pip install -r requirements.txt
-
-# Run database migrations
-alembic upgrade head
-
-# Start the backend
-uvicorn main:app --reload --port 8000
-
-# In a separate terminal, start the frontend
-cd frontend
-npm install
-npm start
-```
-
-## Running Tests
+In Railway project settings → "Variables", add:
 
 ```bash
-cd backend
-DATABASE_URL=sqlite:///./test.db ENVIRONMENT=development \
-  python -m pytest tests/ --ignore=tests/test_analytics.py -v
+# Required
+SECRET_KEY=<generate-with-openssl-rand-hex-32>
+JWT_SECRET_KEY=<generate-with-openssl-rand-hex-32>
+ENCRYPTION_KEY=<generate-with-python-cryptography-fernet>
+
+# Optional
+DEEPSEEK_API_KEY=sk-your-key
+SENTRY_DSN=https://your-sentry-dsn
+CORS_ORIGINS=https://yourdomain.com
+
+# Feature Flags
+RATE_LIMIT_ENABLED=true
+ENABLE_BACKGROUND_JOBS=true
+ENABLE_EVIDENCE_SIGNING=true
+LOG_LEVEL=INFO
+STRUCTURED_LOGGING=true
 ```
 
-## Docker Deployment
+**Generate encryption keys:**
+```bash
+# SECRET_KEY and JWT_SECRET_KEY
+openssl rand -hex 32
+
+# ENCRYPTION_KEY (Fernet key)
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+### Step 5: Deploy
+
+1. Railway auto-deploys on git push to main branch
+2. Monitor deployment logs in Railway dashboard
+3. First deployment takes ~5-10 minutes
+
+### Step 6: Run Database Migrations
 
 ```bash
-# Build and start all services
-docker-compose up --build -d
+# Install Railway CLI
+npm install -g @railway/cli
 
-# Check health
-curl http://localhost:8000/health
+# Login
+railway login
+
+# Link to your project
+railway link
+
+# Run migrations (if using Alembic)
+railway run alembic upgrade head
+
+# Or initialize database tables
+railway run python -c "from backend.database import init_db; init_db()"
 ```
 
-## Railway Deployment
-
-1. Connect your GitHub repository to Railway.
-2. Railway will auto-detect `railway.toml` for build/deploy config.
-3. Add environment variables in the Railway dashboard:
-   - `DATABASE_URL` — provision a PostgreSQL plugin or use an external DB
-   - `SECRET_KEY` — generate with `openssl rand -hex 32`
-   - `ENVIRONMENT` — set to `production`
-   - `CORS_ORIGINS` — your frontend URL
-4. Deploy. Railway uses the health check at `/health` to verify the service.
-
-## Database Migrations (Alembic)
+### Step 7: Verify Deployment
 
 ```bash
-cd backend
+# Check health endpoint
+curl https://your-app.up.railway.app/health
 
-# Create a new migration after model changes
-alembic revision --autogenerate -m "Describe your change"
+# Expected response:
+{
+  "status": "healthy",
+  "timestamp": "2026-02-15T...",
+  "checks": {
+    "database": "connected",
+    "redis": "connected"
+  }
+}
 
-# Apply migrations
-alembic upgrade head
-
-# Rollback one step
-alembic downgrade -1
-
-# View migration history
-alembic history
+# Run validation script
+./scripts/validate_deployment.sh https://your-app.up.railway.app
 ```
 
-## Health Check
-
-The `/health` endpoint verifies:
-- Application status
-- Database connectivity
-- Current version and environment
+### Step 8: Create First User
 
 ```bash
-curl http://localhost:8000/health
-# {"status":"healthy","version":"2.1.0","environment":"production","checks":{"database":"connected"}}
+# SSH into Railway container
+railway run bash
+
+# Create admin user
+python -c "
+from backend.database import SessionLocal
+from backend.models import User
+from backend.core.security import get_password_hash
+
+db = SessionLocal()
+admin = User(
+    email='your-email@lawfirm.com',
+    hashed_password=get_password_hash('YourSecurePassword123!'),
+    role='Partner',
+    is_active=True
+)
+db.add(admin)
+db.commit()
+print('Admin user created')
+"
 ```
+
+## Advanced Configuration
+
+### Multi-Service Deployment
+
+Railway.toml configures three services:
+- **API**: Main FastAPI application
+- **Worker**: Celery background job processor
+- **Beat**: Celery scheduler for periodic tasks
+
+All services are deployed automatically.
+
+### Custom Domain
+
+1. Railway dashboard → Settings → Domains
+2. Click "Add Domain"
+3. Add your domain (e.g., app.medifraudy.com)
+4. Update DNS:
+   - Type: CNAME
+   - Name: app
+   - Value: your-app.up.railway.app
+5. SSL certificate auto-provisioned
+
+### Environment-Specific Variables
+
+Railway automatically injects:
+- `DATABASE_URL` - PostgreSQL connection string
+- `REDIS_URL` - Redis connection string
+- `PORT` - Application port (Railway manages this)
+- `RAILWAY_ENVIRONMENT` - Environment name
+
+## Monitoring
+
+### Health Checks
+
+Railway automatically monitors `/health` endpoint every 30 seconds.
+
+### Application Logs
+
+```bash
+# Follow logs in real-time
+railway logs --follow
+
+# Filter by service
+railway logs api
+railway logs worker
+railway logs beat
+```
+
+### Sentry Integration
+
+Add Sentry DSN to environment variables for error tracking:
+
+```bash
+SENTRY_DSN=https://your-sentry-key@sentry.io/project-id
+```
+
+## Backup Strategy
+
+### Database Backups
+
+Railway PostgreSQL includes automatic daily backups.
+
+**Manual backup:**
+```bash
+railway run pg_dump $DATABASE_URL > backup.sql
+```
+
+**Restore:**
+```bash
+railway run psql $DATABASE_URL < backup.sql
+```
+
+### Evidence Package Backups
+
+Recommended: Store evidence packages in S3/GCS for long-term retention.
+
+## Scaling
+
+### Vertical Scaling
+
+Railway dashboard → Settings → Resources
+- Adjust CPU and memory allocation
+
+### Horizontal Scaling
+
+In `railway.toml`, increase replicas:
+```toml
+[deploy]
+numReplicas = 3
+```
+
+## Troubleshooting
+
+### Deployment Fails
+
+Check logs:
+```bash
+railway logs
+```
+
+Common issues:
+- Missing environment variables → Add in Railway settings
+- Database connection errors → Verify DATABASE_URL is set
+- Port binding issues → Railway uses $PORT env var automatically
+
+### Database Connection Issues
+
+Test connection:
+```bash
+railway run bash
+python -c "from backend.database import engine; engine.connect()"
+```
+
+### Rate Limit Issues
+
+If Redis is unavailable, rate limiting falls back to in-memory mode.
+For production, ensure Redis is properly configured.
+
+### Health Check Failures
+
+1. Check application logs: `railway logs api`
+2. Verify database is accessible
+3. Ensure all required environment variables are set
+4. Check resource limits (CPU/memory)
 
 ## Security Checklist
 
-- [ ] `SECRET_KEY` generated (32+ random bytes) — **never** use the default
-- [ ] `DATABASE_URL` changed from default
-- [ ] `.env` is in `.gitignore` — never commit secrets
-- [ ] CORS configured with specific origins (not `*`)
-- [ ] Sentry DSN configured for error tracking
-- [ ] JWT tokens expire appropriately (`ACCESS_TOKEN_EXPIRE_MINUTES`)
+- [ ] All secrets in environment variables (not in code)
+- [ ] CORS restricted to production domain
+- [ ] Rate limiting enabled
+- [ ] Database backups configured
+- [ ] SSL certificate active
+- [ ] Audit logging enabled
+- [ ] PHI encryption verified (ENCRYPTION_KEY set)
+- [ ] Sentry error tracking configured
+
+## Performance Optimization
+
+### Database Connection Pooling
+
+Configured in `backend/database.py`:
+- Pool size: 20 connections
+- Max overflow: 10 connections
+- Connection recycling: 3600 seconds
+
+### Redis Caching
+
+- Risk scores cached for 1 hour
+- Peer baselines cached for 24 hours
+- Network insights cached for 30 minutes
+
+### Background Jobs
+
+Celery handles:
+- Evidence package generation (async)
+- Batch risk score updates (nightly at 2 AM)
+- Audit log cleanup (weekly)
+
+## HIPAA Compliance
+
+### PHI Encryption
+
+All PHI fields encrypted at rest using Fernet (AES-128):
+- Patient SSN
+- Patient names
+- Date of birth
+
+Ensure `ENCRYPTION_KEY` environment variable is set.
+
+### Audit Logging
+
+All access to PHI is logged in `audit_logs` table:
+- Who accessed data
+- When accessed
+- What was accessed
+- IP address
+
+### Data Retention
+
+- Audit logs: 7 years (HIPAA requirement)
+- Evidence packages: Permanent
+- Claims data: As required by legal hold
+
+## Support
+
+Issues? Contact:
+- GitHub: https://github.com/NickAiNYC/MediFraudy/issues
+- Email: support@medifraudy.com
+
+## Additional Resources
+
+- Railway Docs: https://docs.railway.app
+- FastAPI Docs: https://fastapi.tiangolo.com
+- Celery Docs: https://docs.celeryproject.org

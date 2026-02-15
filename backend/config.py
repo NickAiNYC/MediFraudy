@@ -71,6 +71,9 @@ class Settings:
     # Export
     EXPORT_DIR: str = os.getenv("EXPORT_DIR", "/app/exports")
     
+    # Sentry error tracking
+    SENTRY_DSN: Optional[str] = os.getenv("SENTRY_DSN")
+    
     def __init__(self):
         """Validate critical settings in production."""
         if self.ENVIRONMENT == "production":

@@ -76,3 +76,6 @@ psutil>=5.9.0,<6.0.0                 # System metrics
 
 # Data validation
 pandera>=0.17.0,<1.0.0               # DataFrame validation
+
+# Error tracking
+sentry-sdk[fastapi]>=1.40.0,<3.0.0   # Production error monitoring

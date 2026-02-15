@@ -38,9 +38,12 @@ from routes import nemt
 from routes import cases
 from routes import analytics_trigger
 from routes import homecare
+from routes.api_keys import router as api_keys_router
+from routes.data_quality import router as data_quality_router
 from api.v1.routes.intelligence import router as intelligence_router
 from api.v1.routes.auth import router as auth_router
 from api.v1.routes.agent import router as agent_router
+from health import router as health_router
 from analytics.statistical import (
     calculate_billing_stats,
     detect_outliers,

@@ -56,13 +56,23 @@ seaborn>=0.13.0,<1.0.0
 plotly>=5.18.0,<6.0.0               # Interactive visualizations
 
 # CORS and security
-bcrypt>=4.0.0,<5.0.0                # For future auth
+bcrypt>=4.0.0,<5.0.0                # For password hashing
 python-jose[cryptography]>=3.3.0,<4.0.0  # JWT tokens
 passlib[bcrypt]>=1.7.0,<2.0.0       # Password hashing
+cryptography>=41.0.0,<42.0.0        # PHI encryption (HIPAA requirement)
+
+# Rate limiting
+slowapi>=0.1.9,<1.0.0               # Rate limiting with Redis
+
+# Background jobs
+celery>=5.3.0,<6.0.0               # Background task processing
+flower>=2.0.1                      # Celery monitoring
 
 # Monitoring and logging
 loguru>=0.7.0,<1.0.0                 # Better logging
 prometheus-client>=0.19.0,<1.0.0     # Metrics (optional)
+sentry-sdk[fastapi]>=1.40.0,<2.0.0  # Error tracking
+psutil>=5.9.0,<6.0.0                 # System metrics
 
 # Data validation
 pandera>=0.17.0,<1.0.0               # DataFrame validation

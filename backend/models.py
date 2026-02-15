@@ -533,15 +533,67 @@ class AuditLog(Base):
     __tablename__ = "audit_logs"
 
     id = Column(Integer, primary_key=True, index=True)
-    user = Column(String(100), nullable=False, index=True)
+    user_id = Column(Integer, nullable=True, index=True)  # User ID
+    user = Column(String(100), nullable=True, index=True)  # Username/email for backwards compatibility
     action = Column(String(100), nullable=False)  # e.g., "view_provider", "export_evidence"
-    resource = Column(String(100), nullable=False)  # e.g., "provider", "case", "evidence"
+    resource_type = Column(String(100), nullable=False)  # e.g., "provider", "case", "evidence"
+    resource = Column(String(100), nullable=True)  # Backwards compatibility
     resource_id = Column(String(100), nullable=True, index=True)
     ip_address = Column(String(45), nullable=True)
     details = Column(JSON, default=dict)
+    metadata_json = Column(Text, nullable=True)  # Additional metadata as JSON string
     timestamp = Column(DateTime, default=datetime.utcnow, index=True)
 
     __table_args__ = (
         Index("idx_audit_user_time", "user", "timestamp"),
         Index("idx_audit_resource", "resource", "resource_id"),
+        Index("idx_audit_resource_type", "resource_type", "resource_id"),
     )
+
+
+class User(Base):
+    """User model for authentication and authorization."""
+    __tablename__ = "users"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    hashed_password = Column(String(255), nullable=False)
+    role = Column(String(50), nullable=False, default="Investigator")  # Partner, Associate, Investigator, Auditor
+    full_name = Column(String(255), nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    last_login = Column(DateTime, nullable=True)
+    
+    # Relationships
+    evidence_signatures = relationship("EvidenceSignature", back_populates="user")
+
+
+class EvidenceSignature(Base):
+    """
+    Immutable cryptographic signatures for evidence packages.
+    Used for court admissibility and tamper detection.
+    """
+    __tablename__ = "evidence_signatures"
+    
+    id = Column(Integer, primary_key=True)
+    package_id = Column(String(255), unique=True, nullable=False, index=True)
+    hash_algorithm = Column(String(50), nullable=False, default="SHA-256")
+    signature_hash = Column(String(255), nullable=False)
+    package_version = Column(String(50), nullable=False, default="1.0")
+    
+    # Chain of custody
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User", back_populates="evidence_signatures")
+    
+    # Indexes
+    __table_args__ = (
+        Index('idx_evidence_sig_package_id', 'package_id'),
+        Index('idx_evidence_sig_created_at', 'created_at'),
+    )
+    
+    def __repr__(self):
+        return f"<EvidenceSignature(package_id={self.package_id}, hash={self.signature_hash[:16]}...)>"

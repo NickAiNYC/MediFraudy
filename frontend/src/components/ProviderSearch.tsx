@@ -26,6 +26,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import DownloadIcon from '@mui/icons-material/Download';
+import { motion } from 'framer-motion';
 import { providerApi, exportApi, Provider } from '../services/api';
 
 interface ProviderWithRisk extends Provider {
@@ -40,6 +41,29 @@ interface SearchParams {
   skip: number;
   limit: number;
 }
+
+const darkSelectMenuProps = {
+  PaperProps: {
+    sx: {
+      bgcolor: '#1e293b',
+      border: '1px solid #334155',
+      '& .MuiMenuItem-root': {
+        color: '#f1f5f9',
+        '&:hover': { bgcolor: 'rgba(16,185,129,0.1)' },
+        '&.Mui-selected': { bgcolor: 'rgba(16,185,129,0.2)', color: '#10b981' },
+        '&.Mui-selected:hover': { bgcolor: 'rgba(16,185,129,0.25)' },
+      },
+    },
+  },
+};
+
+const darkInputSx = {
+  color: '#f1f5f9',
+  bgcolor: '#1e293b',
+  borderColor: '#334155',
+  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#10b981' },
+  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#10b981' },
+};
 
 const ProviderSearch: React.FC = () => {
   const navigate = useNavigate();
@@ -121,181 +145,232 @@ const ProviderSearch: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom>
-        Provider Search
-        <Chip 
+      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+        <Typography variant="h4" gutterBottom sx={{
+          fontWeight: 700,
+          background: 'linear-gradient(135deg, #f1f5f9 0%, #94a3b8 100%)',
+          backgroundClip: 'text',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          display: 'inline-flex',
+          alignItems: 'center',
+        }}>
+          Provider Search
+        </Typography>
+        <Chip
           label="NYC Focus"
-          color="primary"
           size="small"
-          sx={{ ml: 2 }}
+          sx={{
+            ml: 2,
+            bgcolor: 'rgba(16,185,129,0.15)',
+            color: '#10b981',
+            border: '1px solid rgba(16,185,129,0.3)',
+            fontWeight: 600,
+          }}
         />
-      </Typography>
+      </motion.div>
       
-      <Typography variant="body2" color="textSecondary" paragraph>
+      <Typography variant="body2" paragraph sx={{ color: '#64748b' }}>
         Search for providers and view Pattern-of-Life forensic risk scores. 
         High-risk facilities are highlighted in red.
       </Typography>
 
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-          <Box sx={{ flex: 1, minWidth: '250px' }}>
-            <TextField
-              fullWidth
-              label="Search by name or NPI"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={handleKeyDown}
-              size="small"
-              placeholder="Enter facility name or NPI..."
-            />
-          </Box>
-          
-          <Box sx={{ flex: 1, minWidth: '200px' }}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Facility Type</InputLabel>
-              <Select
-                value={facilityType}
-                onChange={(e) => setFacilityType(e.target.value)}
-                label="Facility Type"
-              >
-                <MenuItem value="">All Types</MenuItem>
-                {facilityTypes.map(type => (
-                  <MenuItem key={type} value={type}>
-                    {type.replace(/_/g, ' ').toUpperCase()}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Box>
-          
-          <Box sx={{ flex: 1, minWidth: '150px' }}>
-            <FormControl fullWidth size="small">
-              <InputLabel>State</InputLabel>
-              <Select
-                value={state}
-                onChange={(e) => setState(e.target.value)}
-                label="State"
-              >
-                <MenuItem value="NY">NY</MenuItem>
-                <MenuItem value="NJ">NJ</MenuItem>
-                <MenuItem value="CT">CT</MenuItem>
-                <MenuItem value="">All States</MenuItem>
-              </Select>
-            </FormControl>
-          </Box>
-          
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <Button
-              variant="contained"
-              onClick={() => handleSearch(1)}
-              disabled={loading}
-            >
-              {loading ? <CircularProgress size={24} /> : 'Search'}
-            </Button>
-            <Tooltip title="Clear filters">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }}>
+        <Paper sx={{ p: 3, mb: 3, bgcolor: '#0f172a', border: '1px solid #1e293b' }}>
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+            <Box sx={{ flex: 1, minWidth: '250px' }}>
+              <TextField
+                fullWidth
+                label="Search by name or NPI"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
+                size="small"
+                placeholder="Enter facility name or NPI..."
+                InputProps={{ sx: darkInputSx }}
+                InputLabelProps={{ sx: { color: '#64748b' } }}
+              />
+            </Box>
+            
+            <Box sx={{ flex: 1, minWidth: '200px' }}>
+              <FormControl fullWidth size="small">
+                <InputLabel sx={{ color: '#64748b' }}>Facility Type</InputLabel>
+                <Select
+                  value={facilityType}
+                  onChange={(e) => setFacilityType(e.target.value)}
+                  label="Facility Type"
+                  sx={darkInputSx}
+                  MenuProps={darkSelectMenuProps}
+                >
+                  <MenuItem value="">All Types</MenuItem>
+                  {facilityTypes.map(type => (
+                    <MenuItem key={type} value={type}>
+                      {type.replace(/_/g, ' ').toUpperCase()}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+            
+            <Box sx={{ flex: 1, minWidth: '150px' }}>
+              <FormControl fullWidth size="small">
+                <InputLabel sx={{ color: '#64748b' }}>State</InputLabel>
+                <Select
+                  value={state}
+                  onChange={(e) => setState(e.target.value)}
+                  label="State"
+                  sx={darkInputSx}
+                  MenuProps={darkSelectMenuProps}
+                >
+                  <MenuItem value="NY">NY</MenuItem>
+                  <MenuItem value="NJ">NJ</MenuItem>
+                  <MenuItem value="CT">CT</MenuItem>
+                  <MenuItem value="">All States</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+            
+            <Box sx={{ display: 'flex', gap: 1 }}>
               <Button
-                variant="outlined"
-                onClick={handleClearFilters}
+                variant="contained"
+                onClick={() => handleSearch(1)}
                 disabled={loading}
+                sx={{
+                  bgcolor: '#10b981',
+                  color: '#fff',
+                  '&:hover': { bgcolor: '#059669' },
+                  '&.Mui-disabled': { bgcolor: 'rgba(16,185,129,0.3)', color: 'rgba(255,255,255,0.5)' },
+                }}
               >
-                Clear
+                {loading ? <CircularProgress size={24} sx={{ color: '#fff' }} /> : 'Search'}
               </Button>
-            </Tooltip>
+              <Tooltip title="Clear filters">
+                <Button
+                  variant="outlined"
+                  onClick={handleClearFilters}
+                  disabled={loading}
+                  sx={{
+                    borderColor: '#334155',
+                    color: '#94a3b8',
+                    '&:hover': { borderColor: '#10b981', color: '#10b981' },
+                  }}
+                >
+                  Clear
+                </Button>
+              </Tooltip>
+            </Box>
           </Box>
-        </Box>
 
-        {totalCount > 0 && (
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="body2">
-              Found {totalCount} providers
-            </Typography>
-          </Box>
-        )}
-      </Paper>
+          {totalCount > 0 && (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="body2" sx={{ color: '#94a3b8' }}>
+                Found {totalCount} providers
+              </Typography>
+            </Box>
+          )}
+        </Paper>
+      </motion.div>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+        <Alert
+          severity="error"
+          sx={{
+            mb: 2,
+            bgcolor: 'rgba(239,68,68,0.1)',
+            color: '#f87171',
+            border: '1px solid rgba(239,68,68,0.3)',
+            '& .MuiAlert-icon': { color: '#f87171' },
+          }}
+          onClose={() => setError(null)}
+        >
           {error}
         </Alert>
       )}
 
-      <TableContainer component={Paper}>
-        <Table size="small">
-          <TableHead>
-            <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
-              <TableCell><strong>NPI</strong></TableCell>
-              <TableCell><strong>Name</strong></TableCell>
-              <TableCell><strong>City</strong></TableCell>
-              <TableCell><strong>Type</strong></TableCell>
-              <TableCell><strong>Capacity</strong></TableCell>
-              <TableCell align="center"><strong>Actions</strong></TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {results.map((p) => (
-              <TableRow 
-                key={p.id}
-                sx={{ 
-                  '&:hover': { backgroundColor: '#f5f5f5' },
-                  transition: 'background-color 0.2s'
-                }}
-              >
-                <TableCell>{p.npi}</TableCell>
-                <TableCell>{p.name}</TableCell>
-                <TableCell>{p.city}</TableCell>
-                <TableCell>
-                  <Chip 
-                    label={p.facility_type?.replace(/_/g, ' ')}
-                    size="small"
-                    variant="outlined"
-                  />
-                </TableCell>
-                <TableCell>
-                  {p.licensed_capacity ? (
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5, delay: 0.2 }}>
+        <TableContainer component={Paper} sx={{ bgcolor: '#0f172a', border: '1px solid #1e293b' }}>
+          <Table size="small">
+            <TableHead>
+              <TableRow sx={{ bgcolor: '#0f172a' }}>
+                <TableCell sx={{ color: '#94a3b8', borderBottomColor: '#1e293b', fontWeight: 600 }}>NPI</TableCell>
+                <TableCell sx={{ color: '#94a3b8', borderBottomColor: '#1e293b', fontWeight: 600 }}>Name</TableCell>
+                <TableCell sx={{ color: '#94a3b8', borderBottomColor: '#1e293b', fontWeight: 600 }}>City</TableCell>
+                <TableCell sx={{ color: '#94a3b8', borderBottomColor: '#1e293b', fontWeight: 600 }}>Type</TableCell>
+                <TableCell sx={{ color: '#94a3b8', borderBottomColor: '#1e293b', fontWeight: 600 }}>Capacity</TableCell>
+                <TableCell align="center" sx={{ color: '#94a3b8', borderBottomColor: '#1e293b', fontWeight: 600 }}>Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {results.map((p) => (
+                <TableRow 
+                  key={p.id}
+                  sx={{ 
+                    '&:hover': { bgcolor: '#1e293b' },
+                    transition: 'background-color 0.2s',
+                  }}
+                >
+                  <TableCell sx={{ color: '#94a3b8', fontFamily: '"JetBrains Mono", monospace', borderBottomColor: '#1e293b' }}>{p.npi}</TableCell>
+                  <TableCell sx={{ color: '#f1f5f9', borderBottomColor: '#1e293b' }}>{p.name}</TableCell>
+                  <TableCell sx={{ color: '#f1f5f9', borderBottomColor: '#1e293b' }}>{p.city}</TableCell>
+                  <TableCell sx={{ borderBottomColor: '#1e293b' }}>
                     <Chip 
-                      label={p.licensed_capacity}
+                      label={p.facility_type?.replace(/_/g, ' ')}
                       size="small"
+                      sx={{
+                        bgcolor: 'rgba(59,130,246,0.1)',
+                        color: '#60a5fa',
+                        border: '1px solid rgba(59,130,246,0.2)',
+                      }}
                     />
-                  ) : '—'}
-                </TableCell>
-                <TableCell align="center">
-                  <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
-                    <Tooltip title="View Provider Details">
-                      <IconButton 
+                  </TableCell>
+                  <TableCell sx={{ borderBottomColor: '#1e293b' }}>
+                    {p.licensed_capacity ? (
+                      <Chip 
+                        label={p.licensed_capacity}
                         size="small"
-                        onClick={() => navigate(`/providers/${p.id}`)}
-                        color="primary"
-                      >
-                        <AssessmentIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    
-                    <Tooltip title="Download Report">
-                      <IconButton 
-                        size="small"
-                        onClick={() => exportApi.downloadProviderReport(p.id)}
-                        color="secondary"
-                      >
-                        <DownloadIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
-                </TableCell>
-              </TableRow>
-            ))}
-            
-            {results.length === 0 && !loading && (
-              <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                  <Typography variant="body1" color="textSecondary">
-                    No providers found. Try adjusting your search filters.
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+                        sx={{ bgcolor: '#1e293b', color: '#f1f5f9' }}
+                      />
+                    ) : '—'}
+                  </TableCell>
+                  <TableCell align="center" sx={{ borderBottomColor: '#1e293b' }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
+                      <Tooltip title="View Provider Details">
+                        <IconButton 
+                          size="small"
+                          onClick={() => navigate(`/provider/${p.id}`)}
+                          sx={{ color: '#10b981' }}
+                        >
+                          <AssessmentIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      
+                      <Tooltip title="Download Report">
+                        <IconButton 
+                          size="small"
+                          onClick={() => exportApi.downloadProviderReport(p.id)}
+                          sx={{ color: '#94a3b8' }}
+                        >
+                          <DownloadIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ))}
+              
+              {results.length === 0 && !loading && (
+                <TableRow>
+                  <TableCell colSpan={6} align="center" sx={{ py: 4, borderBottomColor: '#1e293b' }}>
+                    <Typography variant="body1" sx={{ color: '#64748b' }}>
+                      No providers found. Try adjusting your search filters.
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </motion.div>
 
       {totalCount > limit && (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
@@ -303,7 +378,10 @@ const ProviderSearch: React.FC = () => {
             count={Math.ceil(totalCount / limit)}
             page={page}
             onChange={handlePageChange}
-            color="primary"
+            sx={{
+              '& .MuiPaginationItem-root': { color: '#94a3b8' },
+              '& .Mui-selected': { bgcolor: 'rgba(16,185,129,0.2)', color: '#10b981' },
+            }}
           />
         </Box>
       )}
@@ -314,7 +392,16 @@ const ProviderSearch: React.FC = () => {
         onClose={() => setSuccessMessage(null)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert severity="success" onClose={() => setSuccessMessage(null)}>
+        <Alert
+          severity="success"
+          onClose={() => setSuccessMessage(null)}
+          sx={{
+            bgcolor: 'rgba(16,185,129,0.1)',
+            color: '#34d399',
+            border: '1px solid rgba(16,185,129,0.3)',
+            '& .MuiAlert-icon': { color: '#34d399' },
+          }}
+        >
           {successMessage}
         </Alert>
       </Snackbar>

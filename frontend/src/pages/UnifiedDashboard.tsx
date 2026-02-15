@@ -184,11 +184,11 @@ export const UnifiedDashboard: React.FC = () => {
                             NYC Fraud Density Map
                         </Typography>
                         <NYCFraudMap
-                            providers={highRiskFacilities.map((f: any) => ({
+                            providers={highRiskFacilities.map((f: any, idx: number) => ({
                                 id: String(f.provider_id),
                                 name: f.name || `Provider ${f.provider_id}`,
-                                latitude: f.latitude || 40.7128 + (Math.random() - 0.5) * 0.15,
-                                longitude: f.longitude || -74.006 + (Math.random() - 0.5) * 0.15,
+                                latitude: f.latitude || 40.65 + (((f.provider_id || idx) * 7 % 100) / 100) * 0.15,
+                                longitude: f.longitude || -74.05 + (((f.provider_id || idx) * 13 % 100) / 100) * 0.15,
                                 riskScore: f.risk_score || f.composite_risk_score || 50,
                                 exposure: f.total_exposure || (f.risk_score || 50) * 100000,
                                 borough: f.borough || f.city || 'Brooklyn',

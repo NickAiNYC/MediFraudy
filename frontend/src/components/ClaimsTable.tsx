@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Box, Typography, TextField, Button, Chip } from '@mui/material';
 import {
   useReactTable,
@@ -40,7 +40,15 @@ const columnHelper = createColumnHelper<ClaimRow>();
 export const ClaimsTable: React.FC<ClaimsTableProps> = ({ data, providerId, onBeneficiaryClick }) => {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
+  const [filterInput, setFilterInput] = useState('');
   const parentRef = useRef<HTMLDivElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const handleFilterChange = useCallback((value: string) => {
+    setFilterInput(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setGlobalFilter(value), 200);
+  }, []);
 
   const violationCount = useMemo(() => data.filter((d) => d.isViolation).length, [data]);
   const totalAmount = useMemo(() => data.reduce((sum, d) => sum + d.amount, 0), [data]);
@@ -286,8 +294,8 @@ export const ClaimsTable: React.FC<ClaimsTableProps> = ({ data, providerId, onBe
             <TextField
               size="small"
               placeholder="Search claims..."
-              value={globalFilter ?? ''}
-              onChange={(e) => setGlobalFilter(e.target.value)}
+              value={filterInput}
+              onChange={(e) => handleFilterChange(e.target.value)}
               sx={{
                 width: 300,
                 '& .MuiOutlinedInput-root': {

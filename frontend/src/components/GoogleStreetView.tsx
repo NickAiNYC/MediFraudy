@@ -64,7 +64,9 @@ const GoogleStreetView: React.FC<GoogleStreetViewProps> = ({
     const apiKey = process.env.REACT_APP_GOOGLE_MAPS_KEY;
 
     if (!apiKey) {
-      // No API key - show fallback
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[GoogleStreetView] REACT_APP_GOOGLE_MAPS_KEY is not set. Add it to .env.local to enable Street View.');
+      }
       setPanoramaAvailable(false);
       setLoading(false);
       return;

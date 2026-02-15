@@ -72,6 +72,7 @@ export async function generatePDFReport(provider: ReportProvider) {
     { align: 'center' }
   );
 
+  // Attorney Work Product designation per FRCP 26(b)(3) - review with counsel before use in litigation
   pdf.setFontSize(8);
   pdf.text('CONFIDENTIAL - Attorney Work Product', 105, 270, { align: 'center' });
 

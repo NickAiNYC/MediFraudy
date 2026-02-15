@@ -79,9 +79,9 @@ const ProviderDetail: React.FC = () => {
       totalBilled: 8500000,
       falseClaims: 2100000,
       sampleClaims: polFindings.slice(0, 20).map((f: any, i: number) => ({
-        date: new Date(Date.now() - i * 7 * 24 * 60 * 60 * 1000).toISOString(),
-        beneficiaryId: `BEN-${1000 + i}`,
-        amount: Math.round(Math.random() * 800 + 200),
+        date: f.date || f.detected_at || new Date(Date.now() - i * 7 * 24 * 60 * 60 * 1000).toISOString(),
+        beneficiaryId: f.beneficiary_id || f.recipient_id || `BEN-${1000 + i}`,
+        amount: f.amount || f.claim_amount || Math.round(200 + i * 45),
         violationType: f.type?.toUpperCase() || 'UNKNOWN',
       })),
     });

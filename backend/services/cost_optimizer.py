@@ -125,7 +125,7 @@ class CostOptimizer:
 
     @staticmethod
     def _make_key(key: str) -> str:
-        digest = hashlib.md5(key.encode()).hexdigest()  # nosec – non-cryptographic use
+        digest = hashlib.sha256(key.encode()).hexdigest()[:32]
         return f"medifraudy:cost:v1:{digest}"
 
     def _store(

@@ -67,7 +67,10 @@ EXCESSIVE_FREQUENCY_THRESHOLDS = {
     "99215": 26,   # Complex office visit (biweekly max)
 }
 
-# Default assumed service duration per unit in hours
+# Default assumed service duration per unit in hours.
+# Conservative estimate for fraud detection — most Medicaid billing
+# codes use 15-minute increments.  Per-code overrides can be added
+# to ANNUAL_FREQUENCY_LIMITS above when more precision is needed.
 DEFAULT_HOURS_PER_UNIT = 0.25  # 15-minute increments
 
 

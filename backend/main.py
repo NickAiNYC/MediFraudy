@@ -1,6 +1,11 @@
-"""FastAPI application for MediFraudy — Medicaid Fraud Intelligence Platform.
+"""FastAPI application for MediFraudy — NYC Medicaid Fraud Intelligence Operating System.
 
 Masterclass Engineered. Palantir-Weaponized. Built for Law Offices.
+
+Primary users: Qui tam law firms, litigation boutiques, compliance groups,
+whistleblower attorneys.
+
+Core value: Turn raw Medicaid claims data into litigation-ready fraud intelligence.
 """
 
 import logging
@@ -15,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from config import settings
 from core.logging import setup_logging
+from core.middleware import RateLimitMiddleware, AuditLoggingMiddleware
 from database import get_db, engine, Base
 from models import (
     Provider, Claim, Anomaly, Case, TimelineEvent,
@@ -53,20 +59,20 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Create database tables on startup."""
-    logger.info("Starting Medicaid Whistleblower Analytics API")
+    logger.info("Starting NYC Medicaid Fraud Intelligence Operating System")
     Base.metadata.create_all(bind=engine)
     yield
     logger.info("Shutting down API")
 
 
 app = FastAPI(
-    title="MediFraudy — Medicaid Fraud Intelligence Platform",
+    title="MediFraudy — NYC Medicaid Fraud Intelligence Operating System",
     description=(
-        "Palantir-grade fraud intelligence for NYC Medicaid litigation. "
-        "Detects fraud patterns, generates litigation-ready evidence, and "
-        "supports qui tam / whistleblower law firms."
+        "Enterprise-grade fraud intelligence for NYC Medicaid litigation. "
+        "4-layer detection engine, graph intelligence, litigation automation, "
+        "and evidence generation for qui tam / whistleblower law firms."
     ),
-    version="1.0.0",
+    version="2.0.0",
     lifespan=lifespan,
 )
 
@@ -80,9 +86,20 @@ app.include_router(intelligence_router)
 app.include_router(auth_router)
 app.include_router(agent_router)
 
+# Enterprise middleware — rate limiting & audit logging
+app.add_middleware(
+    RateLimitMiddleware,
+    requests_per_minute=120,
+    enabled=not settings.is_development,
+)
+app.add_middleware(
+    AuditLoggingMiddleware,
+    enabled=True,
+)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -276,14 +293,14 @@ def list_cases(
 @app.post("/api/cases")
 def create_case(
     case_id: str,
-    facility_id: int,
+    provider_id: int,
     whistleblower_notes: str = "",
     db: Session = Depends(get_db),
 ):
     """Create a new investigation case."""
     case = Case(
         case_id=case_id,
-        facility_id=facility_id,
+        provider_id=provider_id,
         whistleblower_notes=whistleblower_notes,
     )
     db.add(case)
@@ -354,7 +371,7 @@ def _case_dict(c: Case) -> dict:
     return {
         "id": c.id,
         "case_id": c.case_id,
-        "facility_id": c.facility_id,
+        "provider_id": c.provider_id,
         "status": c.status,
         "whistleblower_notes": c.whistleblower_notes,
         "evidence_summary": c.evidence_summary,

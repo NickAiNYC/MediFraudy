@@ -16,6 +16,7 @@ const HomeCarePage = React.lazy(() => import('./pages/HomeCarePage'));
 const Alerts = React.lazy(() => import('./pages/Alerts'));
 const EvidenceVault = React.lazy(() => import('./pages/EvidenceVault'));
 const FraudAgent = React.lazy(() => import('./pages/FraudAgent'));
+const InvestigationQueue = React.lazy(() => import('./pages/InvestigationQueue'));
 
 function App() {
   return (
@@ -47,6 +48,7 @@ function App() {
           <Route path="/evidence" element={<EvidenceVault />} />
           <Route path="/agent" element={<FraudAgent />} />
           <Route path="/home-care" element={<HomeCarePage />} />
+          <Route path="/investigation-queue" element={<InvestigationQueue />} />
           
           {/* 404 Fallback */}
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

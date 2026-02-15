@@ -1,7 +1,7 @@
 """Risk scoring and fraud intelligence API routes.
 
 Provides:
-- Individual provider risk scoring
+- Individual provider risk scoring (with caching)
 - Batch risk scoring
 - Evidence package generation
 - Anomaly detection endpoints
@@ -19,6 +19,10 @@ from sqlalchemy.orm import Session
 from database import get_db
 from services.risk_scoring import calculate_risk_score, batch_risk_scores
 from services.evidence_builder import generate_case_package
+from services.cache import (
+    get_cached_risk_score,
+    set_cached_risk_score,
+)
 from services.anomaly_engine import (
     detect_billing_spikes,
     detect_impossible_service_density,
@@ -44,20 +48,32 @@ router = APIRouter(prefix="/api/v1/intelligence", tags=["intelligence"])
 def get_risk_score(
     provider_id: int,
     lookback_days: int = Query(365, ge=30, le=1825),
+    refresh: bool = Query(False, description="Bypass cache and recalculate"),
     db: Session = Depends(get_db),
 ):
     """Calculate composite fraud risk score for a provider.
 
-    Returns weighted 0-100 score with risk drivers.
+    Results are cached for 1 hour. Use refresh=true to force recalculation.
+
+    Returns weighted 0-100 score with risk drivers and explainability.
 
     Scoring bands:
     - 0–39: Low risk
     - 40–69: Review recommended
     - 70–100: High litigation risk
     """
+    if not refresh:
+        cached = get_cached_risk_score(provider_id)
+        if cached and cached.get("lookback_days") == lookback_days:
+            cached["cached"] = True
+            return cached
+
     result = calculate_risk_score(db, provider_id, lookback_days)
     if "error" in result:
         raise HTTPException(status_code=404, detail=result["error"])
+
+    set_cached_risk_score(provider_id, result)
+    result["cached"] = False
     return result
 
 

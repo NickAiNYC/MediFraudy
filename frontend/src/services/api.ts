@@ -521,6 +521,40 @@ export const healthApi = {
     }),
 };
 
+/* --- DeepSeek Legal Assistant --- */
+export const agentApi = {
+  chat: (message: string, sessionId: string = 'default', providerId?: number) =>
+    api.request<{
+      response: string;
+      session_id: string;
+      model: string;
+      configured: boolean;
+      error?: boolean;
+      usage?: Record<string, number>;
+      timestamp?: string;
+    }>({
+      method: 'POST',
+      url: '/api/v1/agent/chat',
+      data: {
+        message,
+        session_id: sessionId,
+        provider_id: providerId || null,
+      },
+    }),
+
+  clearSession: (sessionId: string = 'default') =>
+    api.request<{ status: string; session_id: string }>({
+      method: 'POST',
+      url: `/api/v1/agent/clear-session?session_id=${sessionId}`,
+    }),
+
+  getStatus: () =>
+    api.request<{ configured: boolean; model: string; description: string }>({
+      method: 'GET',
+      url: '/api/v1/agent/status',
+    }),
+};
+
 // Convenience hooks for React (optional but recommended)
 export const createApiHooks = () => ({
   useProviders: () => ({
@@ -553,6 +587,7 @@ export const apiService = {
   cases: caseApi,
   export: exportApi,
   health: healthApi,
+  agent: agentApi,
 };
 
 // Default export for backward compatibility

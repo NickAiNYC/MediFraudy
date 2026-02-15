@@ -246,16 +246,20 @@ def _temporal_spike_component(
     """Detect sudden billing spikes."""
     drivers = []
 
-    monthly = (
-        db.query(
-            func.date_trunc("month", Claim.claim_date).label("month"),
-            func.sum(Claim.amount).label("total"),
+    try:
+        monthly = (
+            db.query(
+                func.date_trunc("month", Claim.claim_date).label("month"),
+                func.sum(Claim.amount).label("total"),
+            )
+            .filter(Claim.provider_id == provider.id, Claim.claim_date >= cutoff)
+            .group_by("month")
+            .order_by("month")
+            .all()
         )
-        .filter(Claim.provider_id == provider.id, Claim.claim_date >= cutoff)
-        .group_by("month")
-        .order_by("month")
-        .all()
-    )
+    except Exception:
+        db.rollback()
+        return 0.0, drivers
     if len(monthly) < 3:
         return 0.0, drivers
 

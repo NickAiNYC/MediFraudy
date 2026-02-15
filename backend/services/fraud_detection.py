@@ -230,7 +230,8 @@ def borough_risk_heatmap(
             func.sum(Claim.amount).label("total_billing"),
             func.avg(Claim.amount).label("avg_claim"),
         )
-        .join(Claim, Claim.provider_id == Provider.id)
+        .select_from(Claim)
+        .join(Provider, Claim.provider_id == Provider.id)
         .filter(
             Provider.state == "NY",
             Provider.city.in_(NYC_BOROUGHS),
@@ -248,20 +249,6 @@ def borough_risk_heatmap(
             "total_billing": float(row.total_billing),
             "avg_claim": float(row.avg_claim),
         }
-
-    # Get anomaly counts per borough
-    anomaly_data = (
-        db.query(
-            Provider.city,
-            func.count(distinct(Provider.id)).label("flagged_providers"),
-        )
-        .join(Provider, Provider.id == func.any_(
-            db.query(Claim.provider_id).filter(Claim.provider_id == Provider.id).correlate(Provider).scalar_subquery()
-        ))
-        .filter(Provider.state == "NY", Provider.city.in_(NYC_BOROUGHS))
-        .group_by(Provider.city)
-        .all()
-    )
 
     return {
         "boroughs": boroughs,

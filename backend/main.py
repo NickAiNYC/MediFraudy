@@ -1,4 +1,7 @@
-"""FastAPI application for Medicaid Whistleblower Analytics."""
+"""FastAPI application for MediFraudy — Medicaid Fraud Intelligence Platform.
+
+Masterclass Engineered. Palantir-Weaponized. Built for Law Offices.
+"""
 
 import logging
 from contextlib import asynccontextmanager
@@ -11,6 +14,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from config import settings
+from core.logging import setup_logging
 from database import get_db, engine, Base
 from models import (
     Provider, Claim, Anomaly, Case, TimelineEvent,
@@ -23,6 +27,8 @@ from routes import nemt
 from routes import cases
 from routes import analytics_trigger
 from routes import homecare
+from api.v1.routes.intelligence import router as intelligence_router
+from api.v1.routes.auth import router as auth_router
 from analytics.statistical import (
     calculate_billing_stats,
     detect_outliers,
@@ -38,10 +44,8 @@ from analytics.pattern_of_life import (
     analyze_behavioral_patterns,
 )
 
-logging.basicConfig(
-    level=logging.DEBUG if settings.DEBUG else logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
+# Structured logging setup
+setup_logging(level=settings.LOG_LEVEL)
 logger = logging.getLogger(__name__)
 
 
@@ -55,9 +59,13 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Medicaid Whistleblower Analytics",
-    description="Analyze HHS DOGE Medicaid dataset for billing anomalies in NYC elderly care facilities",
-    version="0.1.0",
+    title="MediFraudy — Medicaid Fraud Intelligence Platform",
+    description=(
+        "Palantir-grade fraud intelligence for NYC Medicaid litigation. "
+        "Detects fraud patterns, generates litigation-ready evidence, and "
+        "supports qui tam / whistleblower law firms."
+    ),
+    version="1.0.0",
     lifespan=lifespan,
 )
 
@@ -67,6 +75,8 @@ app.include_router(nemt.router)
 app.include_router(cases.router)
 app.include_router(analytics_trigger.router)
 app.include_router(homecare.router)
+app.include_router(intelligence_router)
+app.include_router(auth_router)
 
 app.add_middleware(
     CORSMiddleware,

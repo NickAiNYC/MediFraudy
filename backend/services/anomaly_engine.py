@@ -38,18 +38,23 @@ def detect_billing_spikes(
     """
     cutoff = datetime.utcnow() - timedelta(days=lookback_days)
 
-    monthly = (
-        db.query(
-            Claim.billing_code,
-            func.date_trunc("month", Claim.claim_date).label("month"),
-            func.count(Claim.id).label("count"),
-            func.sum(Claim.amount).label("total"),
+    try:
+        monthly = (
+            db.query(
+                Claim.billing_code,
+                func.date_trunc("month", Claim.claim_date).label("month"),
+                func.count(Claim.id).label("count"),
+                func.sum(Claim.amount).label("total"),
+            )
+            .filter(Claim.provider_id == provider_id, Claim.claim_date >= cutoff)
+            .group_by(Claim.billing_code, "month")
+            .order_by(Claim.billing_code, "month")
+            .all()
         )
-        .filter(Claim.provider_id == provider_id, Claim.claim_date >= cutoff)
-        .group_by(Claim.billing_code, "month")
-        .order_by(Claim.billing_code, "month")
-        .all()
-    )
+    except Exception as e:
+        logger.warning(f"Billing spike detection unavailable (requires PostgreSQL): {e}")
+        db.rollback()
+        return {"provider_id": provider_id, "spikes": [], "total_codes_analyzed": 0, "note": "Requires PostgreSQL"}
 
     if not monthly:
         return {"provider_id": provider_id, "spikes": [], "total_codes_analyzed": 0}

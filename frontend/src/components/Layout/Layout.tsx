@@ -33,6 +33,9 @@ import {
   Warning as WarningIcon,
   MedicalServices as MedicalIcon,
   GroupWork as GraphIcon,
+  Shield as ShieldIcon,
+  Assessment as AssessmentIcon,
+  Storage as StorageIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -78,11 +81,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   const menuItems = [
-    { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
-    { text: 'Providers', icon: <MedicalIcon />, path: '/providers' },
-    { text: 'Fraud Rings', icon: <GraphIcon />, path: '/fraud-rings' },
+    { text: 'Intelligence Overview', icon: <DashboardIcon />, path: '/dashboard' },
+    { text: 'Provider Risk Index', icon: <AssessmentIcon />, path: '/providers' },
+    { text: 'Network Graph', icon: <GraphIcon />, path: '/fraud-rings' },
+    { text: 'Case Builder', icon: <CasesIcon />, path: '/cases' },
+    { text: 'Alerts', icon: <WarningIcon />, path: '/alerts' },
+    { text: 'Evidence Vault', icon: <StorageIcon />, path: '/evidence' },
     { text: 'Pattern of Life', icon: <AnalyticsIcon />, path: '/pattern-of-life' },
-    { text: 'Case Manager', icon: <CasesIcon />, path: '/cases' },
+    { text: 'Home Care Intel', icon: <MedicalIcon />, path: '/home-care' },
     { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
   ];
 
@@ -109,7 +115,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             MediFraudy
           </Typography>
           <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.65rem', letterSpacing: '0.05em' }}>
-            FRAUD DETECTION PLATFORM
+            FRAUD INTELLIGENCE PLATFORM
           </Typography>
         </Box>
       </Toolbar>
@@ -201,7 +207,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           />
         </Box>
         <Typography variant="caption" sx={{ color: '#475569', display: 'block', textAlign: 'center', fontSize: '0.65rem' }}>
-          v0.2.0 • DOGE Dataset Feb 2026
+          v1.0.0 • DOGE Dataset Feb 2026
         </Typography>
         <Typography variant="caption" sx={{ color: '#475569', display: 'block', textAlign: 'center', fontSize: '0.65rem' }}>
           Queens $120M • Brooklyn $68M

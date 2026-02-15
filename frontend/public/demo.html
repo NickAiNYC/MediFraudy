@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fraud Ring Detection - Demo Visualization</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 24px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 32px;
+            margin-bottom: 24px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+        }
+        
+        h1 {
+            font-size: 42px;
+            font-weight: 800;
+            color: #1a202c;
+            margin-bottom: 8px;
+            letter-spacing: -1px;
+        }
+        
+        .subtitle {
+            font-size: 16px;
+            color: #718096;
+            font-weight: 500;
+        }
+        
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .stat-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+        }
+        
+        .stat-value {
+            font-size: 32px;
+            font-weight: 800;
+            color: #1a202c;
+            font-family: 'JetBrains Mono', monospace;
+            margin-bottom: 4px;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #718096;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .visualization {
+            background: white;
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+        }
+        
+        .controls {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+        
+        .control-btn {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+        
+        .control-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        #network {
+            width: 100%;
+            height: 700px;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(102, 126, 234, 0.03) 0%, transparent 50%),
+                radial-gradient(circle at 80% 50%, rgba(118, 75, 162, 0.03) 0%, transparent 50%),
+                #FAFBFC;
+            border-radius: 12px;
+        }
+        
+        .legend {
+            display: flex;
+            gap: 24px;
+            margin-top: 20px;
+            padding: 16px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            justify-content: center;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+        }
+        
+        .tooltip {
+            position: absolute;
+            background: rgba(44, 62, 80, 0.98);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 13px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+        }
+        
+        .tooltip.visible {
+            opacity: 1;
+        }
+        
+        .demo-banner {
+            background: linear-gradient(135deg, #FDB44B 0%, #FF6B6B 100%);
+            color: white;
+            padding: 16px 24px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            text-align: center;
+            font-weight: 600;
+            box-shadow: 0 8px 24px rgba(253, 180, 75, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="demo-banner">
+            ⚠️ DEMO MODE - This visualization uses simulated data for demonstration purposes
+        </div>
+        
+        <div class="header">
+            <h1>🕸️ Fraud Ring Detection System</h1>
+            <p class="subtitle">Real-time network analysis powered by graph algorithms and machine learning</p>
+        </div>
+        
+        <div class="stats-bar">
+            <div class="stat-card">
+                <div class="stat-value" id="stat-nodes">0</div>
+                <div class="stat-label">Providers</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-edges">0</div>
+                <div class="stat-label">Connections</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-rings">0</div>
+                <div class="stat-label">Fraud Rings</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-risk">0</div>
+                <div class="stat-label">Avg Risk Score</div>
+            </div>
+        </div>
+        
+        <div class="visualization">
+            <div class="controls">
+                <button class="control-btn" onclick="restart()">🔄 Restart Simulation</button>
+                <button class="control-btn" onclick="toggleRiskColors()">🎨 Toggle Risk Colors</button>
+                <button class="control-btn" onclick="generateNewData()">🎲 Generate New Network</button>
+            </div>
+            
+            <svg id="network"></svg>
+            
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #27AE60;"></div>
+                    <span>Low Risk (0-40)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #F39C12;"></div>
+                    <span>Medium Risk (40-70)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #E67E22;"></div>
+                    <span>High Risk (70-85)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #E74C3C;"></div>
+                    <span>Critical Risk (85+)</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="tooltip" id="tooltip"></div>
+    
+    <script>
+        // Generate demo data
+        function generateDemoData() {
+            const providers = [
+                { name: 'Elite Home Care NYC', type: 'Home Health', risk: 88 },
+                { name: 'Brooklyn Medical Transport', type: 'Transportation', risk: 75 },
+                { name: 'Queens Adult Day Care', type: 'Adult Day', risk: 92 },
+                { name: 'Metro Health Services', type: 'Home Health', risk: 45 },
+                { name: 'Bronx Care Network', type: 'Home Health', risk: 85 },
+                { name: 'Staten Island Transport', type: 'Transportation', risk: 62 },
+                { name: 'Manhattan Elite Care', type: 'Adult Day', risk: 78 },
+                { name: 'Harlem Medical Services', type: 'Home Health', risk: 52 },
+                { name: 'Uptown Healthcare', type: 'Home Health', risk: 38 },
+                { name: 'Downtown Wellness', type: 'Adult Day', risk: 28 }
+            ];
+            
+            const nodes = providers.map((p, i) => ({
+                id: i,
+                name: p.name,
+                type: p.type,
+                risk_score: p.risk
+            }));
+            
+            const edges = [
+                { source: 0, target: 1, weight: 45 },
+                { source: 0, target: 2, weight: 38 },
+                { source: 0, target: 4, weight: 52 },
+                { source: 1, target: 2, weight: 30 },
+                { source: 1, target: 4, weight: 28 },
+                { source: 2, target: 4, weight: 42 },
+                { source: 2, target: 6, weight: 25 },
+                { source: 3, target: 7, weight: 15 },
+                { source: 4, target: 6, weight: 20 },
+                { source: 5, target: 8, weight: 12 },
+                { source: 8, target: 9, weight: 18 }
+            ];
+            
+            return { nodes, edges };
+        }
+        
+        let showRiskColors = true;
+        let simulation;
+        
+        function getRiskColor(risk) {
+            if (!showRiskColors) return '#4A90E2';
+            if (risk >= 85) return '#E74C3C';
+            if (risk >= 70) return '#E67E22';
+            if (risk >= 40) return '#F39C12';
+            return '#27AE60';
+        }
+        
+        function visualizeNetwork(data) {
+            const svg = d3.select('#network');
+            svg.selectAll('*').remove();
+            
+            const width = svg.node().getBoundingClientRect().width;
+            const height = 700;
+            
+            const g = svg.append('g');
+            
+            // Zoom behavior
+            const zoom = d3.zoom()
+                .scaleExtent([0.1, 4])
+                .on('zoom', (event) => {
+                    g.attr('transform', event.transform);
+                });
+            
+            svg.call(zoom);
+            
+            // Create simulation
+            simulation = d3.forceSimulation(data.nodes)
+                .force('link', d3.forceLink(data.edges).id(d => d.id).distance(120))
+                .force('charge', d3.forceManyBody().strength(-400))
+                .force('center', d3.forceCenter(width / 2, height / 2))
+                .force('collision', d3.forceCollide().radius(30));
+            
+            // Draw edges
+            const link = g.append('g')
+                .selectAll('line')
+                .data(data.edges)
+                .enter()
+                .append('line')
+                .attr('stroke', '#95A5A6')
+                .attr('stroke-opacity', 0.6)
+                .attr('stroke-width', d => Math.sqrt(d.weight) * 2);
+            
+            // Draw nodes
+            const node = g.append('g')
+                .selectAll('g')
+                .data(data.nodes)
+                .enter()
+                .append('g')
+                .call(d3.drag()
+                    .on('start', dragstarted)
+                    .on('drag', dragged)
+                    .on('end', dragended));
+            
+            // Glow effect
+            node.append('circle')
+                .attr('r', d => 16 + (d.risk_score / 8))
+                .attr('fill', d => getRiskColor(d.risk_score))
+                .attr('opacity', 0.2)
+                .style('filter', 'blur(8px)');
+            
+            // Main circle
+            node.append('circle')
+                .attr('r', d => 14 + (d.risk_score / 10))
+                .attr('fill', d => getRiskColor(d.risk_score))
+                .attr('stroke', '#FFFFFF')
+                .attr('stroke-width', 3)
+                .style('filter', 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))')
+                .on('mouseover', showTooltip)
+                .on('mouseout', hideTooltip);
+            
+            // Labels
+            node.append('text')
+                .attr('dy', d => 22 + (d.risk_score / 10))
+                .attr('text-anchor', 'middle')
+                .attr('font-size', '11px')
+                .attr('font-weight', '600')
+                .attr('fill', '#2C3E50')
+                .attr('paint-order', 'stroke')
+                .attr('stroke', '#FFFFFF')
+                .attr('stroke-width', 3)
+                .text(d => d.name.substring(0, 20));
+            
+            // Update positions
+            simulation.on('tick', () => {
+                link
+                    .attr('x1', d => d.source.x)
+                    .attr('y1', d => d.source.y)
+                    .attr('x2', d => d.target.x)
+                    .attr('y2', d => d.target.y);
+                
+                node.attr('transform', d => `translate(${d.x},${d.y})`);
+            });
+            
+            // Update stats
+            document.getElementById('stat-nodes').textContent = data.nodes.length;
+            document.getElementById('stat-edges').textContent = data.edges.length;
+            document.getElementById('stat-rings').textContent = Math.floor(data.nodes.length / 3);
+            const avgRisk = Math.round(data.nodes.reduce((sum, n) => sum + n.risk_score, 0) / data.nodes.length);
+            document.getElementById('stat-risk').textContent = avgRisk;
+        }
+        
+        function dragstarted(event, d) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+        
+        function dragged(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
+        }
+        
+        function dragended(event, d) {
+            if (!event.active) simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+        }
+        
+        function showTooltip(event, d) {
+            const tooltip = document.getElementById('tooltip');
+            tooltip.innerHTML = `
+                <strong>${d.name}</strong><br>
+                Type: ${d.type}<br>
+                Risk Score: ${d.risk_score}
+            `;
+            tooltip.style.left = (event.pageX + 15) + 'px';
+            tooltip.style.top = (event.pageY - 15) + 'px';
+            tooltip.classList.add('visible');
+        }
+        
+        function hideTooltip() {
+            document.getElementById('tooltip').classList.remove('visible');
+        }
+        
+        function restart() {
+            if (simulation) {
+                simulation.alpha(1).restart();
+            }
+        }
+        
+        function toggleRiskColors() {
+            showRiskColors = !showRiskColors;
+            const data = generateDemoData();
+            visualizeNetwork(data);
+        }
+        
+        function generateNewData() {
+            const data = generateDemoData();
+            // Add some randomness
+            data.nodes.forEach(n => {
+                n.risk_score = Math.min(95, Math.max(20, n.risk_score + (Math.random() - 0.5) * 30));
+            });
+            visualizeNetwork(data);
+        }
+        
+        // Initialize
+        const initialData = generateDemoData();
+        visualizeNetwork(initialData);
+    </script>
+</body>
+</html>

@@ -112,6 +112,7 @@ class AuditLoggingMiddleware(BaseHTTPMiddleware):
         auth_header = request.headers.get("authorization", "")
         if auth_header.startswith("Bearer "):
             try:
+                # Import inside function to avoid circular imports with FastAPI app
                 from core.security import decode_token
                 token_data = decode_token(auth_header.split(" ", 1)[1])
                 user = token_data.sub

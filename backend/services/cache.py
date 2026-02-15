@@ -92,14 +92,23 @@ def set_cached_risk_score(
         except Exception as e:
             logger.warning(f"Redis set error: {e}")
 
-    # Fallback to memory cache (evict oldest if full)
+    # Fallback to memory cache (evict expired entries first, then oldest)
+    now = time.time()
     if len(_memory_cache) >= _MEMORY_CACHE_MAX:
-        oldest_key = min(_memory_cache, key=lambda k: _memory_cache[k].get("expires_at", 0))
-        del _memory_cache[oldest_key]
+        # Remove expired entries first
+        expired = [k for k, v in _memory_cache.items() if v.get("expires_at", 0) <= now]
+        for k in expired:
+            del _memory_cache[k]
+        # If still full, evict oldest entry
+        if len(_memory_cache) >= _MEMORY_CACHE_MAX:
+            oldest_key = min(
+                _memory_cache, key=lambda k: _memory_cache[k].get("expires_at", 0)
+            )
+            del _memory_cache[oldest_key]
 
     _memory_cache[key] = {
         "data": data,
-        "expires_at": time.time() + ttl,
+        "expires_at": now + ttl,
     }
 
 
@@ -144,13 +153,20 @@ def set_cached_network_insights(data: Dict, ttl: int = 1800) -> None:
         except Exception:
             pass
 
+    now = time.time()
     if len(_memory_cache) >= _MEMORY_CACHE_MAX:
-        oldest_key = min(_memory_cache, key=lambda k: _memory_cache[k].get("expires_at", 0))
-        del _memory_cache[oldest_key]
+        expired = [k for k, v in _memory_cache.items() if v.get("expires_at", 0) <= now]
+        for k in expired:
+            del _memory_cache[k]
+        if len(_memory_cache) >= _MEMORY_CACHE_MAX:
+            oldest_key = min(
+                _memory_cache, key=lambda k: _memory_cache[k].get("expires_at", 0)
+            )
+            del _memory_cache[oldest_key]
 
     _memory_cache[key] = {
         "data": data,
-        "expires_at": time.time() + ttl,
+        "expires_at": now + ttl,
     }
 
 

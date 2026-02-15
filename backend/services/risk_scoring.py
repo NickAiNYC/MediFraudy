@@ -497,7 +497,7 @@ def _historical_risk_component(db: Session, provider: Provider) -> tuple:
             db.query(func.count(ProviderScreening.id))
             .filter(
                 ProviderScreening.provider_id == provider.id,
-                ProviderScreening.exclusion_list_check == True,
+                ProviderScreening.exclusion_list_check.is_(True),
                 ProviderScreening.status == "fail",
             )
             .scalar()

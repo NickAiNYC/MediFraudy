@@ -249,15 +249,22 @@ def get_investigation_queue(
         )
 
     # Sort
-    priority_order = {"high": 1, "medium": 2, "low": 3}
     if sort_by == "fraud_amount":
         query = query.order_by(InvestigationCase.estimated_fraud_amount.desc().nullslast())
     elif sort_by == "date":
         query = query.order_by(InvestigationCase.opened_at.desc())
     else:
         # Default: high priority first, then by date
+        # Use CASE to ensure correct priority ordering (not alphabetical)
+        from sqlalchemy import case as sql_case
+        priority_sort = sql_case(
+            (InvestigationCase.priority == "high", 1),
+            (InvestigationCase.priority == "medium", 2),
+            (InvestigationCase.priority == "low", 3),
+            else_=4,
+        )
         query = query.order_by(
-            InvestigationCase.priority.asc(),
+            priority_sort,
             InvestigationCase.opened_at.desc(),
         )
 

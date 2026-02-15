@@ -119,7 +119,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             MediFraudy
           </Typography>
           <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.65rem', letterSpacing: '0.05em' }}>
-            FRAUD INTELLIGENCE PLATFORM
+            FRAUD INTELLIGENCE OS
           </Typography>
         </Box>
       </Toolbar>

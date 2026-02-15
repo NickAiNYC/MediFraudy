@@ -57,7 +57,7 @@ const InvestigationQueue: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const params: Record<string, string> = { sort_by: sortBy };
+      const params: Record<string, any> = { sort_by: sortBy };
       if (statusFilter) params.status = statusFilter;
       if (priorityFilter) params.priority = priorityFilter;
       const data = await caseApi.getInvestigationQueue(params);

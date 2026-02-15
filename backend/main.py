@@ -293,14 +293,14 @@ def list_cases(
 @app.post("/api/cases")
 def create_case(
     case_id: str,
-    facility_id: int,
+    provider_id: int,
     whistleblower_notes: str = "",
     db: Session = Depends(get_db),
 ):
     """Create a new investigation case."""
     case = Case(
         case_id=case_id,
-        facility_id=facility_id,
+        provider_id=provider_id,
         whistleblower_notes=whistleblower_notes,
     )
     db.add(case)
@@ -371,7 +371,7 @@ def _case_dict(c: Case) -> dict:
     return {
         "id": c.id,
         "case_id": c.case_id,
-        "facility_id": c.facility_id,
+        "provider_id": c.provider_id,
         "status": c.status,
         "whistleblower_notes": c.whistleblower_notes,
         "evidence_summary": c.evidence_summary,

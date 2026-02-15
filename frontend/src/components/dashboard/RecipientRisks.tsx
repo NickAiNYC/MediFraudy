@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, CardContent, Typography, List, ListItem, ListItemText, Box, Chip } from '@mui/material';
+import { Card, CardContent, Typography, List, ListItem, ListItemText, Box } from '@mui/material';
 import { Person as PersonIcon, Loop as LoopIcon, Map as MapIcon } from '@mui/icons-material';
 
 interface CardSharer {

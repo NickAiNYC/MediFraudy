@@ -12,7 +12,9 @@ from services.risk_scoring import (
     _behavioral_component,
     _network_risk_component,
     _nyc_specific_component,
+    _historical_risk_component,
     WEIGHTS,
+    RISK_CATEGORIES,
 )
 
 
@@ -25,10 +27,10 @@ class TestRiskScoringWeights:
         assert abs(total - 1.0) < 0.001, f"Weights sum to {total}, expected 1.0"
 
     def test_all_weight_keys_present(self):
-        """All expected component keys must be present."""
+        """All expected 4-layer component keys must be present."""
         expected = {
-            "billing_zscore", "peer_deviation", "temporal_spike",
-            "behavioral", "network_risk", "nyc_specific",
+            "statistical_anomaly", "behavioral_signals",
+            "network_intelligence", "historical_risk",
         }
         assert set(WEIGHTS.keys()) == expected
 
@@ -36,6 +38,24 @@ class TestRiskScoringWeights:
         """No weight should be negative."""
         for key, value in WEIGHTS.items():
             assert value >= 0, f"Weight {key} is negative: {value}"
+
+    def test_layer_weights_match_spec(self):
+        """Verify 4-layer weight allocation matches specification."""
+        assert WEIGHTS["statistical_anomaly"] == 0.30
+        assert WEIGHTS["behavioral_signals"] == 0.30
+        assert WEIGHTS["network_intelligence"] == 0.25
+        assert WEIGHTS["historical_risk"] == 0.15
+
+
+class TestRiskCategories:
+    """Test risk category labels."""
+
+    def test_risk_categories_defined(self):
+        """All risk levels must have category labels."""
+        assert "HIGH" in RISK_CATEGORIES
+        assert "REVIEW" in RISK_CATEGORIES
+        assert "LOW" in RISK_CATEGORIES
+        assert RISK_CATEGORIES["HIGH"] == "High Litigation Risk"
 
 
 class TestRiskScoreBands:
@@ -62,6 +82,25 @@ class TestRiskScoreBands:
         # With all zero sub-scores, score should be 0 (LOW)
         assert result["risk_score"] == 0
         assert result["risk_level"] == "LOW"
+        assert result["category"] == "Low Risk"
+
+    def test_result_includes_category(self):
+        """Result should include a human-readable category."""
+        db = MagicMock()
+        provider = MagicMock()
+        provider.id = 1
+        provider.name = "Test"
+        provider.state = "CA"
+        provider.facility_type = None
+        provider.licensed_capacity = None
+
+        db.query.return_value.filter.return_value.first.return_value = provider
+        db.query.return_value.filter.return_value.scalar.return_value = 0
+        db.query.return_value.join.return_value.filter.return_value.first.return_value = None
+
+        result = calculate_risk_score(db, 1)
+        assert "category" in result
+        assert "layer_details" in result
 
     def test_provider_not_found(self):
         """Should return error for non-existent provider."""
@@ -71,6 +110,7 @@ class TestRiskScoreBands:
         result = calculate_risk_score(db, 99999)
         assert "error" in result
         assert result["risk_score"] == 0
+        assert result["category"] == "Insufficient Data"
 
 
 class TestBillingZscoreComponent:

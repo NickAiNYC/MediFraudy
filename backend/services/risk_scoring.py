@@ -1,7 +1,26 @@
-"""Composite fraud risk scoring engine.
+"""Composite fraud risk scoring engine — 4-layer detection system.
 
-Combines statistical anomaly, behavioral pattern, and network analysis
-signals into a single weighted risk score (0-100).
+Layer 1: Statistical Outlier Detection (30%)
+    - Z-score deviation from peer CPT averages
+    - Temporal spikes
+    - Borough-level anomalies
+
+Layer 2: Behavioral Pattern Detection (30%)
+    - Identical billing fingerprints
+    - Impossible service density
+    - Billing outside business hours
+    - High CPT clustering per beneficiary
+
+Layer 3: Network Intelligence (25%)
+    - Provider ↔ Clinic ↔ Beneficiary graph centrality
+    - Shared tax IDs / addresses
+    - Referral loops
+    - Community detection clustering
+
+Layer 4: Predictive / Historical Risk (15%)
+    - Prior sanctions or exclusions
+    - Historical anomaly accumulation
+    - NYC-specific patterns (capacity violations, kickbacks)
 
 Scoring bands:
     0–39  = Low
@@ -21,14 +40,20 @@ from models import Provider, Claim, Anomaly
 
 logger = logging.getLogger(__name__)
 
-# Weight configuration for composite scoring
+# 4-layer weight configuration for composite scoring
 WEIGHTS = {
-    "billing_zscore": 0.25,
-    "peer_deviation": 0.15,
-    "temporal_spike": 0.15,
-    "behavioral": 0.15,
-    "network_risk": 0.15,
-    "nyc_specific": 0.15,
+    "statistical_anomaly": 0.30,
+    "behavioral_signals": 0.30,
+    "network_intelligence": 0.25,
+    "historical_risk": 0.15,
+}
+
+# Risk category labels
+RISK_CATEGORIES = {
+    "HIGH": "High Litigation Risk",
+    "REVIEW": "Review Recommended",
+    "LOW": "Low Risk",
+    "UNKNOWN": "Insufficient Data",
 }
 
 
@@ -37,9 +62,16 @@ def calculate_risk_score(
     provider_id: int,
     lookback_days: int = 365,
 ) -> Dict[str, Any]:
-    """Calculate composite fraud risk score for a provider.
+    """Calculate composite fraud risk score using 4-layer detection.
 
-    Combines multiple signal categories into a weighted 0-100 score.
+    Layer 1 — Statistical Anomaly (30%):
+        Z-score deviation, peer deviation, temporal spikes.
+    Layer 2 — Behavioral Signals (30%):
+        Billing fingerprints, impossible density, code clustering.
+    Layer 3 — Network Intelligence (25%):
+        Network centrality, shared connections, fraud ring membership.
+    Layer 4 — Historical / Predictive Risk (15%):
+        Prior anomalies, sanctions, NYC-specific patterns.
 
     Args:
         db: Database session.
@@ -47,47 +79,70 @@ def calculate_risk_score(
         lookback_days: Analysis window.
 
     Returns:
-        Dictionary with risk_score, risk_level, and driver explanations.
+        Dictionary with risk_score, category, and explainable drivers.
     """
     provider = db.query(Provider).filter(Provider.id == provider_id).first()
     if not provider:
-        return {"error": "Provider not found", "risk_score": 0, "risk_level": "UNKNOWN"}
+        return {"error": "Provider not found", "risk_score": 0, "risk_level": "UNKNOWN",
+                "category": RISK_CATEGORIES["UNKNOWN"]}
 
     cutoff = datetime.utcnow() - timedelta(days=lookback_days)
     drivers: List[str] = []
     sub_scores: Dict[str, float] = {}
+    layer_details: Dict[str, Dict[str, float]] = {}
 
-    # 1. Billing Z-Score (vs state peers)
+    # --- Layer 1: Statistical Anomaly (30%) ---
     billing_score, billing_drivers = _billing_zscore_component(db, provider, cutoff)
-    sub_scores["billing_zscore"] = billing_score
-    drivers.extend(billing_drivers)
-
-    # 2. Peer deviation
     peer_score, peer_drivers = _peer_deviation_component(db, provider, cutoff)
-    sub_scores["peer_deviation"] = peer_score
-    drivers.extend(peer_drivers)
-
-    # 3. Temporal spike detection
     spike_score, spike_drivers = _temporal_spike_component(db, provider, cutoff)
-    sub_scores["temporal_spike"] = spike_score
+    drivers.extend(billing_drivers)
+    drivers.extend(peer_drivers)
     drivers.extend(spike_drivers)
 
-    # 4. Behavioral signals
+    stat_components = {
+        "billing_zscore": billing_score,
+        "peer_deviation": peer_score,
+        "temporal_spike": spike_score,
+    }
+    layer_details["statistical_anomaly"] = stat_components
+    sub_scores["statistical_anomaly"] = (
+        billing_score * 0.40 + peer_score * 0.30 + spike_score * 0.30
+    )
+
+    # --- Layer 2: Behavioral Signals (30%) ---
     behavior_score, behavior_drivers = _behavioral_component(db, provider, cutoff)
-    sub_scores["behavioral"] = behavior_score
     drivers.extend(behavior_drivers)
 
-    # 5. Network risk (from existing anomalies)
+    behav_components = {
+        "behavioral_patterns": behavior_score,
+    }
+    layer_details["behavioral_signals"] = behav_components
+    sub_scores["behavioral_signals"] = behavior_score
+
+    # --- Layer 3: Network Intelligence (25%) ---
     network_score, network_drivers = _network_risk_component(db, provider)
-    sub_scores["network_risk"] = network_score
     drivers.extend(network_drivers)
 
-    # 6. NYC-specific signals
-    nyc_score, nyc_drivers = _nyc_specific_component(db, provider, cutoff)
-    sub_scores["nyc_specific"] = nyc_score
-    drivers.extend(nyc_drivers)
+    net_components = {
+        "network_risk": network_score,
+    }
+    layer_details["network_intelligence"] = net_components
+    sub_scores["network_intelligence"] = network_score
 
-    # Weighted composite
+    # --- Layer 4: Historical / Predictive Risk (15%) ---
+    nyc_score, nyc_drivers = _nyc_specific_component(db, provider, cutoff)
+    historical_score, hist_drivers = _historical_risk_component(db, provider)
+    drivers.extend(nyc_drivers)
+    drivers.extend(hist_drivers)
+
+    hist_components = {
+        "nyc_specific": nyc_score,
+        "historical_anomalies": historical_score,
+    }
+    layer_details["historical_risk"] = hist_components
+    sub_scores["historical_risk"] = nyc_score * 0.50 + historical_score * 0.50
+
+    # Weighted composite across 4 layers
     composite = sum(
         sub_scores.get(key, 0) * weight
         for key, weight in WEIGHTS.items()
@@ -101,13 +156,17 @@ def calculate_risk_score(
     else:
         risk_level = "LOW"
 
+    category = RISK_CATEGORIES.get(risk_level, RISK_CATEGORIES["UNKNOWN"])
+
     return {
         "provider_id": provider_id,
         "provider_name": provider.name,
         "risk_score": risk_score,
         "risk_level": risk_level,
+        "category": category,
         "drivers": drivers[:10],  # Top 10 drivers
         "sub_scores": sub_scores,
+        "layer_details": layer_details,
         "weights": WEIGHTS,
         "analyzed_at": datetime.utcnow().isoformat(),
         "lookback_days": lookback_days,
@@ -321,8 +380,15 @@ def _behavioral_component(
 
 
 def _network_risk_component(db: Session, provider: Provider) -> tuple:
-    """Use existing anomaly data as proxy for network risk."""
+    """Layer 3: Network intelligence scoring.
+
+    Evaluates network centrality, fraud ring membership, and
+    connections to high-risk or sanctioned providers.
+    """
     drivers = []
+    score = 0.0
+
+    # Anomaly-based network signal
     anomaly_count = (
         db.query(func.count(Anomaly.id))
         .filter(Anomaly.provider_id == provider.id)
@@ -335,13 +401,37 @@ def _network_risk_component(db: Session, provider: Provider) -> tuple:
         .scalar()
     ) or 0
 
-    score = min(100, anomaly_count * 10 + high_z_count * 20)
+    score += min(40, anomaly_count * 5 + high_z_count * 10)
     if anomaly_count > 0:
         drivers.append(f"{anomaly_count} detected anomalies")
     if high_z_count > 0:
         drivers.append(f"{high_z_count} high-severity anomalies (z≥5)")
 
-    return score, drivers
+    # Network centrality and fraud ring analysis (if available)
+    try:
+        from services.network_analysis import get_network_summary
+        network = get_network_summary(db, provider.id)
+        connected = network.get("connected_entities", 0)
+        high_risk = network.get("high_risk_connections", 0)
+        in_ring = network.get("in_fraud_ring", False)
+
+        if connected > 5:
+            score += min(20, connected * 2)
+            drivers.append(f"High network centrality: {connected} connected entities")
+        if high_risk > 0:
+            score += min(20, high_risk * 10)
+            drivers.append(f"Connected to {high_risk} high-risk entities")
+        if in_ring:
+            ring_info = network.get("fraud_ring_info", {})
+            score += 30
+            drivers.append(
+                f"Member of suspected fraud ring "
+                f"(ring size: {ring_info.get('ring_size', 'N/A')})"
+            )
+    except Exception as e:
+        logger.debug(f"Network analysis unavailable for scoring: {e}")
+
+    return min(100, score), drivers
 
 
 def _nyc_specific_component(
@@ -380,5 +470,46 @@ def _nyc_specific_component(
     if total and float(total) > 5_000_000:
         score += 30
         drivers.append(f"High NYC billing total: ${float(total):,.0f}")
+
+    return min(100, score), drivers
+
+
+def _historical_risk_component(db: Session, provider: Provider) -> tuple:
+    """Layer 4 sub-component: Historical risk from prior sanctions and screening failures.
+
+    Checks provider screening records and historical exclusion-list flags.
+    """
+    drivers = []
+    score = 0.0
+
+    try:
+        from models import ProviderScreening
+        failed_screenings = (
+            db.query(func.count(ProviderScreening.id))
+            .filter(
+                ProviderScreening.provider_id == provider.id,
+                ProviderScreening.status == "fail",
+            )
+            .scalar()
+        ) or 0
+
+        exclusion_hits = (
+            db.query(func.count(ProviderScreening.id))
+            .filter(
+                ProviderScreening.provider_id == provider.id,
+                ProviderScreening.exclusion_list_check == True,
+                ProviderScreening.status == "fail",
+            )
+            .scalar()
+        ) or 0
+
+        if failed_screenings > 0:
+            score += min(50, failed_screenings * 25)
+            drivers.append(f"{failed_screenings} failed screening(s) on record")
+        if exclusion_hits > 0:
+            score += 40
+            drivers.append(f"Flagged on exclusion list ({exclusion_hits} hit(s))")
+    except Exception as e:
+        logger.debug(f"Provider screening data unavailable: {e}")
 
     return min(100, score), drivers

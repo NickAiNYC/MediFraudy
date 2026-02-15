@@ -41,6 +41,44 @@ uvicorn main:app --reload
 cd ../frontend && npm install && npm start
 ```
 
+## Production Deployment (Railway)
+
+MediFraudy is production-ready with enterprise-grade security, HIPAA compliance, and forensic integrity features.
+
+### Quick Deploy to Railway
+
+```bash
+# 1. Connect to Railway
+railway login
+
+# 2. Initialize project
+railway init
+
+# 3. Add PostgreSQL and Redis
+railway add --database postgresql
+railway add --database redis
+
+# 4. Set environment variables
+railway variables set SECRET_KEY=$(openssl rand -hex 32)
+railway variables set JWT_SECRET_KEY=$(openssl rand -hex 32)
+railway variables set ENCRYPTION_KEY=$(python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+
+# 5. Deploy
+git push origin main
+```
+
+**See [DEPLOYMENT.md](./DEPLOYMENT.md) for complete deployment guide.**
+
+### Key Production Features
+
+- **Multi-Service Architecture**: API + Background Workers + Scheduled Tasks
+- **HIPAA Compliance**: PHI encryption at rest, audit logging, chain of custody
+- **Evidence Integrity**: Cryptographic signing (SHA-256) for court admissibility
+- **Security**: Rate limiting, JWT authentication, security headers, input sanitization
+- **Monitoring**: Structured JSON logging, Sentry error tracking, health checks
+- **Performance**: Redis caching, connection pooling, async background jobs
+- **Forensics**: Immutable audit trails, evidence package verification
+
 ### DeepSeek AI Legal Assistant
 Set `DEEPSEEK_API_KEY` in your `.env` to enable the AI legal assistant:
 ```env

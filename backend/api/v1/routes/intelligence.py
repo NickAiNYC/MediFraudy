@@ -51,8 +51,8 @@ def get_risk_score(
     Returns weighted 0-100 score with risk drivers.
 
     Scoring bands:
-    - 0–40: Low risk
-    - 40–70: Review recommended
+    - 0–39: Low risk
+    - 40–69: Review recommended
     - 70–100: High litigation risk
     """
     result = calculate_risk_score(db, provider_id, lookback_days)

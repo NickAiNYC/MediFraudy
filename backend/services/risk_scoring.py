@@ -4,8 +4,8 @@ Combines statistical anomaly, behavioral pattern, and network analysis
 signals into a single weighted risk score (0-100).
 
 Scoring bands:
-    0–40  = Low
-    40–70 = Review
+    0–39  = Low
+    40–69 = Review
     70–100 = High Litigation Risk
 """
 

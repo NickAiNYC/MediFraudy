@@ -91,6 +91,10 @@ services:
       
       # CORS
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      
+      # DeepSeek AI Agent
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-chat}
     volumes:
       - ./data:/app/data
       - ./exports:/app/exports

@@ -36,6 +36,7 @@ import {
   Shield as ShieldIcon,
   Assessment as AssessmentIcon,
   Storage as StorageIcon,
+  Gavel as GavelIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -87,6 +88,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { text: 'Case Builder', icon: <CasesIcon />, path: '/cases' },
     { text: 'Alerts', icon: <WarningIcon />, path: '/alerts' },
     { text: 'Evidence Vault', icon: <StorageIcon />, path: '/evidence' },
+    { text: 'Legal Assistant', icon: <GavelIcon />, path: '/agent' },
     { text: 'Pattern of Life', icon: <AnalyticsIcon />, path: '/pattern-of-life' },
     { text: 'Home Care Intel', icon: <MedicalIcon />, path: '/home-care' },
     { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },

@@ -29,6 +29,7 @@ from routes import analytics_trigger
 from routes import homecare
 from api.v1.routes.intelligence import router as intelligence_router
 from api.v1.routes.auth import router as auth_router
+from api.v1.routes.agent import router as agent_router
 from analytics.statistical import (
     calculate_billing_stats,
     detect_outliers,
@@ -77,6 +78,7 @@ app.include_router(analytics_trigger.router)
 app.include_router(homecare.router)
 app.include_router(intelligence_router)
 app.include_router(auth_router)
+app.include_router(agent_router)
 
 app.add_middleware(
     CORSMiddleware,

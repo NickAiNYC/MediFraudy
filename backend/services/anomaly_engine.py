@@ -16,6 +16,10 @@ from sqlalchemy import func
 
 from models import Provider, Claim
 
+# Spike severity thresholds (ratio vs baseline)
+CRITICAL_SPIKE_RATIO = 5.0
+HIGH_SPIKE_RATIO = 3.0
+
 logger = logging.getLogger(__name__)
 
 
@@ -79,7 +83,7 @@ def detect_billing_spikes(
                 "baseline_avg": round(baseline, 1),
                 "latest_count": latest,
                 "spike_ratio": round(ratio, 2),
-                "severity": "critical" if ratio > 5 else "high" if ratio > 3 else "moderate",
+                "severity": "critical" if ratio > CRITICAL_SPIKE_RATIO else "high" if ratio > HIGH_SPIKE_RATIO else "moderate",
             })
 
     spikes.sort(key=lambda x: x["spike_ratio"], reverse=True)

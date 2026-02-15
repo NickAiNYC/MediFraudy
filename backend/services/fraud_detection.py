@@ -38,6 +38,9 @@ HIGH_RISK_CPT_CODES = {
 # NYC Borough mapping
 NYC_BOROUGHS = ["Manhattan", "Brooklyn", "Queens", "Bronx", "Staten Island"]
 
+# Maximum plausible home care claims per patient per year (~1 per working day)
+MAX_CLAIMS_PER_PATIENT = 200
+
 
 def detect_homecare_inflation(
     db: Session,
@@ -74,11 +77,11 @@ def detect_homecare_inflation(
     # Check claims per patient ratio
     if provider_data.patients and provider_data.patients > 0:
         claims_per_patient = provider_data.claim_count / provider_data.patients
-        if claims_per_patient > 200:  # More than ~1 claim per working day per patient
+        if claims_per_patient > MAX_CLAIMS_PER_PATIENT:
             flags.append({
                 "type": "excessive_claims_per_patient",
                 "value": round(claims_per_patient, 1),
-                "threshold": 200,
+                "threshold": MAX_CLAIMS_PER_PATIENT,
                 "severity": "high",
             })
 

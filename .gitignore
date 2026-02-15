@@ -49,3 +49,8 @@ env/
 *.gz
 *.tar
 *.7z
+
+# Test databases
+*.db
+*.db-shm
+*.db-wal

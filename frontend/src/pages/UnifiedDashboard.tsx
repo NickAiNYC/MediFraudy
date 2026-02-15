@@ -1,19 +1,16 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
-    Download as DownloadIcon, 
     Warning as WarningIcon,
     TrendingUp as TrendingUpIcon,
     People as PeopleIcon,
-    Gavel as GavelIcon,
     Security as SecurityIcon,
     ArrowUpward as ArrowUpIcon,
 } from '@mui/icons-material';
-import { Typography, Container, Box, CircularProgress, Alert, Button, Card, CardContent, Divider, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Chip } from '@mui/material';
-import axios from 'axios';
+import { Typography, Box, CircularProgress, Alert, Card, CardContent, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip } from '@mui/material';
 import { 
     PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, Legend 
 } from 'recharts';
-import { motion } from 'framer-motion';
 import { SADCHeatmap } from '../components/dashboard/SADCHeatmap';
 import { PharmacyMeter } from '../components/dashboard/PharmacyMeter';
 import { RiskScoreCard } from '../components/dashboard/RiskScoreCard';
@@ -23,11 +20,13 @@ import { RecipientRisks } from '../components/dashboard/RecipientRisks';
 import { HighRiskFacilities } from '../components/dashboard/HighRiskFacilities';
 import { HomeCareView } from '../components/dashboard/HomeCareView';
 import { StatCard } from '../components/StatCard';
-import { polApi, exportApi, dashboardApi, sadcApi, pharmacyApi, nemtApi, recipientApi, analyticsApi } from '../services/api';
+import { NYCFraudMap } from '../components/NYCFraudMap';
+import { polApi, dashboardApi, sadcApi, pharmacyApi, nemtApi, recipientApi, analyticsApi } from '../services/api';
 
 const PIE_COLORS = ['#10b981', '#ef4444', '#3b82f6', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899'];
 
 export const UnifiedDashboard: React.FC = () => {
+    const navigate = useNavigate();
     const [summary, setSummary] = useState<any>(null);
     const [sadcHeatmapData, setSadcHeatmapData] = useState<any>(null);
     const [pharmacyData, setPharmacyData] = useState<any>(null);
@@ -36,7 +35,7 @@ export const UnifiedDashboard: React.FC = () => {
     const [recipientCardSharers, setRecipientCardSharers] = useState<any[]>([]);
     const [recipientResellers, setRecipientResellers] = useState<any[]>([]);
     const [highRiskFacilities, setHighRiskFacilities] = useState<any[]>([]);
-    const [patterns, setPatterns] = useState<any[]>([]);
+    const [patterns] = useState<any[]>([]);
     const [outliers, setOutliers] = useState<any[]>([]);
     
     const [loading, setLoading] = useState(true);
@@ -134,10 +133,6 @@ export const UnifiedDashboard: React.FC = () => {
         value 
     }));
 
-    const handleDownloadPackage = () => {
-        exportApi.downloadDOJPackage();
-    };
-
     // Compute stats from available data
     const totalViolations = (riskBreakdown.sadc || 0) + (riskBreakdown.cdpap || 0) + 
         (riskBreakdown.pharmacy || 0) + (riskBreakdown.nemt || 0);
@@ -178,6 +173,84 @@ export const UnifiedDashboard: React.FC = () => {
                     trend="Critical threshold"
                     delay={0.3}
                 />
+            </Box>
+
+            {/* NYC Map + Top 10 Providers */}
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '2fr 1fr' }, gap: 3, mb: 3 }}>
+                {/* NYC Fraud Density Map */}
+                <Card>
+                    <CardContent>
+                        <Typography variant="h6" gutterBottom sx={{ color: '#f1f5f9', fontWeight: 600 }}>
+                            NYC Fraud Density Map
+                        </Typography>
+                        <NYCFraudMap
+                            providers={highRiskFacilities.map((f: any) => ({
+                                id: String(f.provider_id),
+                                name: f.name || `Provider ${f.provider_id}`,
+                                latitude: f.latitude || 40.7128 + (Math.random() - 0.5) * 0.15,
+                                longitude: f.longitude || -74.006 + (Math.random() - 0.5) * 0.15,
+                                riskScore: f.risk_score || f.composite_risk_score || 50,
+                                exposure: f.total_exposure || (f.risk_score || 50) * 100000,
+                                borough: f.borough || f.city || 'Brooklyn',
+                            }))}
+                            onProviderClick={(id) => navigate(`/provider/${id}`)}
+                        />
+                    </CardContent>
+                </Card>
+
+                {/* Top 10 High-Risk Providers */}
+                <Card sx={{ maxHeight: 580, overflow: 'auto' }}>
+                    <CardContent>
+                        <Typography variant="h6" gutterBottom sx={{ color: '#f1f5f9', fontWeight: 600 }}>
+                            Top 10 High-Risk Providers
+                        </Typography>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                            {highRiskFacilities.slice(0, 10).map((facility: any) => {
+                                const riskScore = facility.risk_score || facility.composite_risk_score || 0;
+                                return (
+                                    <Box
+                                        key={facility.provider_id}
+                                        onClick={() => navigate(`/provider/${facility.provider_id}`)}
+                                        sx={{
+                                            p: 2,
+                                            bgcolor: '#1e293b',
+                                            borderRadius: 2,
+                                            border: '1px solid #334155',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s',
+                                            '&:hover': {
+                                                borderColor: riskScore >= 85 ? '#ef4444' : '#10b981',
+                                                transform: 'translateX(4px)',
+                                            },
+                                        }}
+                                    >
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                                            <Typography variant="body2" sx={{ color: '#f1f5f9', fontWeight: 600, fontSize: '0.85rem' }}>
+                                                {facility.name || `Provider ${facility.provider_id}`}
+                                            </Typography>
+                                            <Chip
+                                                label={riskScore}
+                                                size="small"
+                                                sx={{
+                                                    bgcolor: riskScore >= 85 ? 'rgba(239,68,68,0.2)' :
+                                                             riskScore >= 70 ? 'rgba(249,115,22,0.2)' : 'rgba(234,179,8,0.2)',
+                                                    color: riskScore >= 85 ? '#ef4444' :
+                                                           riskScore >= 70 ? '#f97316' : '#eab308',
+                                                    fontWeight: 700,
+                                                    fontSize: '0.75rem',
+                                                    fontFamily: '"JetBrains Mono", monospace',
+                                                }}
+                                            />
+                                        </Box>
+                                        <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.7rem' }}>
+                                            {facility.borough || facility.city || 'NYC'} • ${((facility.total_exposure || riskScore * 100000) / 1000000).toFixed(1)}M exposure
+                                        </Typography>
+                                    </Box>
+                                );
+                            })}
+                        </Box>
+                    </CardContent>
+                </Card>
             </Box>
 
             <Box sx={{ display: "flex", flexWrap: "wrap", gap: 3 }}>

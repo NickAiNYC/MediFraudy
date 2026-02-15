@@ -29,6 +29,7 @@ export const HomeCarePage: React.FC = () => {
   const [trendingPatterns, setTrendingPatterns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [selectedProviderId, setSelectedProviderId] = useState<number | null>(null);
   const [providerDialog, setProviderDialog] = useState(false);
   const [providerIdInput, setProviderIdInput] = useState('');

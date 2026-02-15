@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Box, Typography, Card, CardContent } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import {
   Area,
   AreaChart,

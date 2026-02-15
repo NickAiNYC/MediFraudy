@@ -556,7 +556,7 @@ export const apiService = {
 };
 
 // Default export for backward compatibility
-export default {
+const legacyApi = {
   // Providers (legacy)
   searchProviders: providerApi.search,
   getProvider: providerApi.get,
@@ -596,3 +596,5 @@ export default {
   // Service object with all APIs
   apiService,
 };
+
+export default legacyApi;

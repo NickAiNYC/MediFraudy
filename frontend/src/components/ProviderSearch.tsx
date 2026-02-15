@@ -25,12 +25,8 @@ import {
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import AssessmentIcon from '@mui/icons-material/Assessment';
-import WarningIcon from '@mui/icons-material/Warning';
-import ErrorIcon from '@mui/icons-material/Error';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import DownloadIcon from '@mui/icons-material/Download';
-import RefreshIcon from '@mui/icons-material/Refresh';
-import { providerApi, polApi, exportApi, Provider } from '../services/api';
+import { providerApi, exportApi, Provider } from '../services/api';
 
 interface ProviderWithRisk extends Provider {
   risk_score?: number;
@@ -114,6 +110,7 @@ const ProviderSearch: React.FC = () => {
     handleSearch(1);
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const getRiskColor = (level?: string): 'error' | 'warning' | 'success' | 'default' => {
     switch(level) {
       case 'HIGH': return 'error';

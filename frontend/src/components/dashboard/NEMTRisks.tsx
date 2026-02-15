@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, CardContent, Typography, List, ListItem, ListItemText, Chip, Divider, Box } from '@mui/material';
+import { Card, CardContent, Typography, List, ListItem, ListItemText, Divider, Box } from '@mui/material';
 import { DirectionsCar as CarIcon, ReportProblem as AlertIcon } from '@mui/icons-material';
 
 interface GhostRide {

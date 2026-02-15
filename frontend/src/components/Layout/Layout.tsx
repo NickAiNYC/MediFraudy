@@ -24,9 +24,7 @@ import {
 import {
   Menu as MenuIcon,
   Dashboard as DashboardIcon,
-  Search as SearchIcon,
   Analytics as AnalyticsIcon,
-  Assessment as AssessmentIcon,
   FolderSpecial as CasesIcon,
   Settings as SettingsIcon,
   Notifications as NotificationsIcon,

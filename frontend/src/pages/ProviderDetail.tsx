@@ -12,18 +12,15 @@ import {
   Alert
 } from '@mui/material';
 import {
-  Description as CaseIcon,
-  Assessment as POLIcon,
   PictureAsPdf as PDFIcon,
   Warning as WarningIcon,
   TrendingUp as TrendingUpIcon,
   People as PeopleIcon,
   Schedule as ScheduleIcon,
-  Share as ShareIcon,
   Flag as FlagIcon,
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
-import api, { providerApi, analyticsApi, polApi } from '../services/api';
+import { providerApi, analyticsApi, polApi } from '../services/api';
 import PatternOfLifeView from '../components/PatternOfLifeView';
 import GoogleStreetView from '../components/GoogleStreetView';
 import CapacityChart from '../components/CapacityChart';

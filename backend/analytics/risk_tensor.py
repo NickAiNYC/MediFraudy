@@ -516,16 +516,25 @@ def compute_geographic_dimension(
     # High place-of-service diversity is unusual for most provider types
     pos_score = min(100, pos_count * 15)
 
-    # City spread: claims across many different cities
+    # City spread: count distinct cities of *other* providers that share
+    # beneficiaries with this provider — a proxy for geographic reach.
+    shared_bene_sub = (
+        db.query(Claim.beneficiary_id)
+        .filter(Claim.provider_id == provider.id)
+        .filter(Claim.claim_date >= cutoff.date())
+        .filter(Claim.beneficiary_id.isnot(None))
+        .distinct()
+        .subquery()
+    )
     bene_cities = (
         db.query(func.count(func.distinct(Provider.city)))
         .join(Claim, Claim.provider_id == Provider.id)
-        .filter(Claim.provider_id == provider.id)
-        .filter(Claim.claim_date >= cutoff.date())
+        .filter(Claim.beneficiary_id.in_(shared_bene_sub.select()))
+        .filter(Provider.id != provider.id)
         .scalar()
-    ) or 1
-    # For a single provider, more than a few cities is unusual
-    city_score = min(100, max(0, (bene_cities - 1) * 20))
+    ) or 0
+    # Beneficiaries seen across many cities is unusual
+    city_score = min(100, max(0, bene_cities * 20))
 
     score = min(100, int(
         0.30 * density_score + 0.40 * pos_score + 0.30 * city_score
@@ -854,7 +863,9 @@ def reduce_tensor_to_score(
         }
 
     # Create a small synthetic sample around the score vector so that
-    # covariance captures the relative magnitudes.
+    # covariance captures the relative magnitudes.  Fixed seed ensures
+    # identical inputs always produce identical composite scores, which
+    # is required for audit reproducibility and regression tests.
     rng = np.random.RandomState(42)
     n_synthetic = 50
     noise = rng.normal(0, 1, size=(n_synthetic, len(DIMENSIONS)))

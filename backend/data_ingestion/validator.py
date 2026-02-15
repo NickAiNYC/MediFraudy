@@ -32,6 +32,25 @@ EXPECTED_COLUMNS = {
     'service_category': str,
 }
 
+# Business rules for cross-field validation
+RULES = [
+    {
+        'name': 'amount_non_negative',
+        'condition': 'df["amount"] >= 0',
+        'message': 'Claim amounts must be non-negative'
+    },
+    {
+        'name': 'claim_date_before_submitted',
+        'condition': 'df["claim_date"] <= df["submitted_date"]',
+        'message': 'Claim date must not be after submitted date'
+    },
+    {
+        'name': 'units_positive',
+        'condition': 'df["units"] > 0',
+        'message': 'Units of service must be positive'
+    },
+]
+
 
 # ---------------------------------------------------------------------------
 # Core validation functions

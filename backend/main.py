@@ -19,6 +19,22 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from config import settings
+
+# Initialize Sentry error tracking if configured
+if settings.SENTRY_DSN:
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.fastapi import FastApiIntegration
+        from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+
+        sentry_sdk.init(
+            dsn=settings.SENTRY_DSN,
+            environment=settings.ENVIRONMENT,
+            traces_sample_rate=0.1 if settings.is_production else 1.0,
+            integrations=[FastApiIntegration(), SqlalchemyIntegration()],
+        )
+    except ImportError:
+        pass  # sentry-sdk not installed, skip
 from core.logging import setup_logging
 from core.middleware import RateLimitMiddleware, AuditLoggingMiddleware
 from database import get_db, engine, Base
@@ -33,6 +49,8 @@ from routes import nemt
 from routes import cases
 from routes import analytics_trigger
 from routes import homecare
+from routes.api_keys import router as api_keys_router
+from routes.data_quality import router as data_quality_router
 from api.v1.routes.intelligence import router as intelligence_router
 from api.v1.routes.auth import router as auth_router
 from api.v1.routes.agent import router as agent_router
@@ -82,6 +100,8 @@ app.include_router(nemt.router)
 app.include_router(cases.router)
 app.include_router(analytics_trigger.router)
 app.include_router(homecare.router)
+app.include_router(api_keys_router)
+app.include_router(data_quality_router)
 app.include_router(intelligence_router)
 app.include_router(auth_router)
 app.include_router(agent_router)

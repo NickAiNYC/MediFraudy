@@ -545,3 +545,24 @@ class AuditLog(Base):
         Index("idx_audit_user_time", "user", "timestamp"),
         Index("idx_audit_resource", "resource", "resource_id"),
     )
+
+
+class APIKey(Base):
+    """API key for tiered access control.
+
+    Supports Free, Pro, and Enterprise tiers with different rate limits
+    and feature access levels.
+    """
+
+    __tablename__ = "api_keys"
+
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String(64), unique=True, index=True, nullable=False)
+    name = Column(String(255), nullable=False)
+    tier = Column(String(20), nullable=False, default="free")  # free, pro, enterprise
+    owner_email = Column(String(255), nullable=False)
+    is_active = Column(Boolean, default=True)
+    requests_today = Column(Integer, default=0)
+    last_request_date = Column(Date, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=True)

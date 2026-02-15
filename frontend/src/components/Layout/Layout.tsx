@@ -80,6 +80,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
+    { text: 'Providers', icon: <MedicalIcon />, path: '/providers' },
+    { text: 'Fraud Rings', icon: <GraphIcon />, path: '/fraud-rings' },
+    { text: 'Pattern of Life', icon: <AnalyticsIcon />, path: '/pattern-of-life' },
+    { text: 'Case Manager', icon: <CasesIcon />, path: '/cases' },
     { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
   ];
 
@@ -109,11 +113,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         cursor: 'pointer',
         '&:hover': { bgcolor: theme.palette.error.main },
       }}
-      onClick={() => handleNavigation('/nyc-sweep')}
+      onClick={() => handleNavigation('/dashboard')}
       >
         <WarningIcon sx={{ color: 'white' }} />
         <Typography variant="body2" sx={{ color: 'white', fontWeight: 600 }}>
-          12 High-Risk Facilities
+          Live Fraud Alerts Active
         </Typography>
       </Box>
 

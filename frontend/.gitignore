@@ -12,7 +12,7 @@ venv/
 /data/
 /exports/
 *.csv
-*.json
+/data/*.json
 *.zip
 *.parquet
 

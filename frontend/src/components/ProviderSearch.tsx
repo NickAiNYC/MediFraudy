@@ -110,8 +110,7 @@ const ProviderSearch: React.FC = () => {
     handleSearch(1);
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const getRiskColor = (level?: string): 'error' | 'warning' | 'success' | 'default' => {
+  const _getRiskColor = (level?: string): 'error' | 'warning' | 'success' | 'default' => {
     switch(level) {
       case 'HIGH': return 'error';
       case 'MEDIUM': return 'warning';

@@ -30,7 +30,22 @@ frontend/.env.local
 # Environment
 .env
 *.log
+cookies.txt
+*.pyc
+.DS_Store
+node_modules/
+dist/
+build/
+venv/
+env/
+.venv/
 
-# Backups
-*.bak
-*~
+# Data files (never commit the big file!)
+/data/
+*.csv
+*.zip
+*.parquet
+*.jsonl
+*.gz
+*.tar
+*.7z

@@ -53,8 +53,11 @@ class Settings:
     OPENAI_API_KEY: Optional[str] = os.getenv("OPENAI_API_KEY")
     CLAUDE_API_KEY: Optional[str] = os.getenv("CLAUDE_API_KEY")
     DEEPSEEK_API_KEY: Optional[str] = os.getenv("DEEPSEEK_API_KEY")
-    DEEPSEEK_MODEL: str = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+    DEEPSEEK_MODEL: str = os.getenv("DEEPSEEK_MODEL", "deepseek/deepseek-r1:free")
     LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "local")  # local, openai, claude, deepseek
+    
+    # Redis — Railway injects REDIS_URL
+    REDIS_URL: str = os.getenv("REDIS_URL", "redis://redis:6379/0")
     
     # Export
     EXPORT_DIR: str = os.getenv("EXPORT_DIR", "/app/exports")

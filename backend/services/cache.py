@@ -29,10 +29,9 @@ def _get_redis():
         return _redis_client
     try:
         import redis
-        client = redis.Redis(
-            host="redis",
-            port=6379,
-            db=0,
+        from config import settings
+        client = redis.from_url(
+            settings.REDIS_URL,
             socket_connect_timeout=2,
             socket_timeout=2,
             decode_responses=True,

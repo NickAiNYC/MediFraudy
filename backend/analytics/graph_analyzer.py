@@ -432,15 +432,23 @@ class FraudRingDetector:
         }
     
     def generate_network_insights(self) -> Dict[str, Any]:
-        """Generate comprehensive network analysis report."""
+        """Generate comprehensive network analysis report.
+
+        Includes degree centrality, betweenness centrality, community detection,
+        shared address clusters, and cross-borough mapping.
+        """
         logger.info("Generating network insights...")
         
         if self.graph.number_of_nodes() == 0:
             self.build_provider_network()
         
-        # Get central providers
-        centrality = nx.degree_centrality(self.graph)
-        top_central = sorted(centrality.items(), key=lambda x: x[1], reverse=True)[:10]
+        # Degree centrality
+        degree_centrality = nx.degree_centrality(self.graph)
+        top_degree = sorted(degree_centrality.items(), key=lambda x: x[1], reverse=True)[:10]
+
+        # Betweenness centrality — identifies brokers between clusters
+        betweenness = nx.betweenness_centrality(self.graph)
+        top_betweenness = sorted(betweenness.items(), key=lambda x: x[1], reverse=True)[:10]
         
         # Community summary
         if community_louvain:
@@ -448,6 +456,12 @@ class FraudRingDetector:
             num_communities = len(set(communities.values()))
         else:
             num_communities = nx.number_connected_components(self.graph)
+
+        # Shared address clusters
+        shared_address_clusters = self._detect_shared_address_clusters()
+
+        # Cross-borough cluster mapping
+        cross_borough_clusters = self._detect_cross_borough_clusters(communities if community_louvain else {})
         
         insights = {
             'total_providers': int(self.graph.number_of_nodes()),
@@ -458,19 +472,109 @@ class FraudRingDetector:
             'fraud_rings': self.detect_fraud_rings(),
             'kickback_cycles': self.detect_kickback_cycles(),
             'beneficiary_concentration': self.find_beneficiary_concentration_rings(),
+            'shared_address_clusters': shared_address_clusters,
+            'cross_borough_clusters': cross_borough_clusters,
             'most_central_providers': [
                 {
                     'id': int(node_id),
                     'name': self.graph.nodes[node_id].get('name', f'Provider {node_id}'),
-                    'centrality': float(round(score, 4)),
+                    'degree_centrality': float(round(score, 4)),
+                    'betweenness_centrality': float(round(betweenness.get(node_id, 0), 4)),
                     'risk_score': float(self.graph.nodes[node_id].get('risk_score', 0))
                 }
-                for node_id, score in top_central
-            ]
+                for node_id, score in top_degree
+            ],
+            'top_betweenness_brokers': [
+                {
+                    'id': int(node_id),
+                    'name': self.graph.nodes[node_id].get('name', f'Provider {node_id}'),
+                    'betweenness_centrality': float(round(score, 4)),
+                    'risk_score': float(self.graph.nodes[node_id].get('risk_score', 0))
+                }
+                for node_id, score in top_betweenness
+                if score > 0
+            ],
         }
         
         logger.info("Network insights generated successfully")
         return insights
+
+    def _detect_shared_address_clusters(self) -> List[Dict[str, Any]]:
+        """Detect providers sharing the same address (potential shell entities).
+
+        Shared addresses are a strong indicator of coordinated fraud schemes
+        where multiple provider entities operate from one location.
+        """
+        address_groups: Dict[str, List[int]] = defaultdict(list)
+        for node_id in self.graph.nodes():
+            addr = self.graph.nodes[node_id].get('address', '').strip().lower()
+            if addr and addr not in ('', 'unknown', 'n/a'):
+                address_groups[addr].append(node_id)
+
+        clusters = []
+        for addr, provider_ids in address_groups.items():
+            if len(provider_ids) < 2:
+                continue
+            providers_data = [
+                {
+                    'id': int(pid),
+                    'name': self.graph.nodes[pid].get('name', f'Provider {pid}'),
+                    'type': self.graph.nodes[pid].get('type', 'Unknown'),
+                }
+                for pid in provider_ids
+            ]
+            clusters.append({
+                'address': addr,
+                'provider_count': len(provider_ids),
+                'providers': providers_data,
+                'suspicion_level': 'HIGH' if len(provider_ids) >= 4 else 'MEDIUM',
+            })
+
+        clusters.sort(key=lambda x: x['provider_count'], reverse=True)
+        return clusters[:50]
+
+    def _detect_cross_borough_clusters(self, communities: Dict) -> List[Dict[str, Any]]:
+        """Map fraud communities that span multiple NYC boroughs.
+
+        Cross-borough clusters suggest organized fraud rings operating
+        across geographic boundaries to evade local oversight.
+        """
+        nyc_boroughs = {"manhattan", "brooklyn", "queens", "bronx", "staten island"}
+        if not communities:
+            return []
+
+        community_groups: Dict[int, List[int]] = defaultdict(list)
+        for node_id, comm_id in communities.items():
+            community_groups[comm_id].append(node_id)
+
+        cross_borough = []
+        for comm_id, nodes in community_groups.items():
+            if len(nodes) < 3:
+                continue
+            boroughs_found = set()
+            for n in nodes:
+                addr = self.graph.nodes[n].get('address', '').lower()
+                node_type = self.graph.nodes[n].get('type', '').lower()
+                for borough in nyc_boroughs:
+                    if borough in addr or borough in node_type:
+                        boroughs_found.add(borough.title())
+            if len(boroughs_found) >= 2:
+                cross_borough.append({
+                    'community_id': int(comm_id),
+                    'size': len(nodes),
+                    'boroughs': sorted(boroughs_found),
+                    'borough_count': len(boroughs_found),
+                    'providers': [
+                        {
+                            'id': int(n),
+                            'name': self.graph.nodes[n].get('name', f'Provider {n}'),
+                        }
+                        for n in nodes[:20]
+                    ],
+                })
+
+        cross_borough.sort(key=lambda x: x['borough_count'], reverse=True)
+        return cross_borough[:20]
     
     def _get_providers(self) -> List[Dict]:
         """Get providers from database with aggregate stats."""

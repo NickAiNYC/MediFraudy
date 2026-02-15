@@ -140,6 +140,7 @@ def _build_statistical_comparison(
         "provider_avg_claim": float(provider_stats.avg_amount or 0),
         "unique_beneficiaries": int(provider_stats.unique_beneficiaries or 0),
         "unique_billing_codes": int(provider_stats.unique_codes or 0),
+        "lookback_months": lookback_days // 30,
     }
 
     if peer_stats and peer_stats.peer_avg:
@@ -151,6 +152,11 @@ def _build_statistical_comparison(
     else:
         result["peer_avg_claim"] = None
         result["peer_deviation_ratio"] = None
+
+    # Top overused CPT code vs peers
+    top_cpt = _find_top_overused_cpt(db, provider, cutoff)
+    if top_cpt:
+        result["top_overused_cpt"] = top_cpt
 
     return result
 
@@ -250,6 +256,53 @@ def _get_anomaly_summary(db: Session, provider_id: int) -> List[Dict[str, Any]]:
     ]
 
 
+def _find_top_overused_cpt(
+    db: Session, provider: Provider, cutoff: datetime
+) -> Optional[Dict[str, Any]]:
+    """Find the single most overused CPT code vs borough peers.
+
+    Returns the CPT with the highest ratio above the peer median,
+    used for the litigation narrative (e.g., "5.2x the Bronx median for CPT 97530").
+    """
+    provider_codes = (
+        db.query(
+            Claim.billing_code,
+            func.count(Claim.id).label("count"),
+        )
+        .filter(Claim.provider_id == provider.id, Claim.claim_date >= cutoff)
+        .group_by(Claim.billing_code)
+        .all()
+    )
+
+    best = None
+    for row in provider_codes:
+        peer_avg = (
+            db.query(func.avg(func.count(Claim.id)))
+            .select_from(Claim)
+            .join(Provider, Claim.provider_id == Provider.id)
+            .filter(
+                Provider.city == provider.city,
+                Provider.state == provider.state,
+                Claim.billing_code == row.billing_code,
+                Claim.claim_date >= cutoff,
+                Provider.id != provider.id,
+            )
+            .group_by(Provider.id)
+            .scalar()
+        )
+        if peer_avg and float(peer_avg) > 0:
+            ratio = row.count / float(peer_avg)
+            if ratio > 2.0 and (best is None or ratio > best["ratio"]):
+                best = {
+                    "code": row.billing_code,
+                    "provider_count": int(row.count),
+                    "peer_avg": round(float(peer_avg), 1),
+                    "ratio": round(ratio, 1),
+                }
+
+    return best
+
+
 def _generate_litigation_narrative(
     provider: Provider,
     risk_result: Dict,
@@ -262,34 +315,68 @@ def _generate_litigation_narrative(
 
     This narrative summarizes the key fraud indicators in a format
     suitable for inclusion in a qui tam complaint or disclosure statement.
+
+    Output example:
+        "Provider X billed 5.2x the Bronx median for CPT 97530 over 24 months.
+        Network analysis shows connections to 4 entities under prior investigation.
+        Billing density exceeds plausible service capacity by 240%."
     """
     parts = []
 
-    # Opening
+    # Opening with risk category
+    category = risk_result.get("category", risk_result.get("risk_level", "UNKNOWN"))
     parts.append(
         f"Provider {provider.name} (NPI: {provider.npi}), located in "
         f"{provider.city or 'New York'}, {provider.state or 'NY'}, "
         f"has been identified with a composite fraud risk score of "
         f"{risk_result.get('risk_score', 0)} out of 100 "
-        f"({risk_result.get('risk_level', 'UNKNOWN')} risk)."
+        f"({category})."
     )
 
-    # Billing deviation
+    # Billing deviation — include CPT-level detail when available
     if stats.get("peer_deviation_ratio") and stats["peer_deviation_ratio"] > 1.5:
+        borough = stats.get("borough", "borough")
+        ratio = stats["peer_deviation_ratio"]
+        total_billing = stats.get("provider_total_billing", 0)
+        claim_count = stats.get("provider_claims", 0)
+        lookback_months = stats.get("lookback_months", 12)
         parts.append(
-            f"Statistical analysis shows billing at {stats['peer_deviation_ratio']}x "
-            f"the {stats.get('borough', 'borough')} peer average, "
-            f"with total claims of ${stats.get('provider_total_billing', 0):,.0f} "
-            f"across {stats.get('provider_claims', 0)} submissions."
+            f"Statistical analysis shows billing at {ratio}x "
+            f"the {borough} peer average over {lookback_months} months, "
+            f"with total claims of ${total_billing:,.0f} "
+            f"across {claim_count} submissions."
+        )
+
+    # CPT-level peer comparison (top overused code)
+    top_cpt = stats.get("top_overused_cpt")
+    if top_cpt:
+        parts.append(
+            f"Provider billed {top_cpt.get('ratio', 0):.1f}x the "
+            f"{stats.get('borough', 'borough')} median for CPT {top_cpt.get('code', 'N/A')}."
         )
 
     # Anomalies
     if anomalies:
         top_z = anomalies[0].get("z_score", 0)
+        top_code = anomalies[0].get("billing_code", "N/A")
         parts.append(
             f"Statistical outlier analysis detected {len(anomalies)} anomalies, "
-            f"with the highest z-score of {top_z:.1f}."
+            f"with the highest z-score of {top_z:.1f} on CPT {top_code}."
         )
+
+    # Billing density / capacity
+    try:
+        capacity = provider.licensed_capacity
+        if capacity and isinstance(capacity, (int, float)) and capacity > 0:
+            unique_bens = stats.get("unique_beneficiaries", 0)
+            if unique_bens and unique_bens > capacity:
+                density_ratio = unique_bens / capacity
+                excess_pct = (density_ratio - 1.0) * 100
+                parts.append(
+                    f"Billing density exceeds plausible service capacity by {excess_pct:.0f}%."
+                )
+    except (TypeError, AttributeError):
+        pass
 
     # Spikes
     spike_months = [t for t in timeline if t.get("flag") == "spike"]
@@ -299,15 +386,21 @@ def _generate_litigation_narrative(
             f"within the analysis window."
         )
 
-    # Network
+    # Network intelligence
     connected = network.get("connected_entities", 0)
     if connected > 0:
         high_risk = network.get("high_risk_connections", 0)
+        centrality = network.get("betweenness_centrality", 0)
         parts.append(
             f"Network analysis shows connections to {connected} entities"
             + (f", including {high_risk} high-risk entities" if high_risk > 0 else "")
             + "."
         )
+        if centrality and centrality > 0.05:
+            parts.append(
+                f"High network centrality in referral cluster "
+                f"(betweenness: {centrality:.3f})."
+            )
     if network.get("in_fraud_ring"):
         ring = network.get("fraud_ring_info", {})
         parts.append(

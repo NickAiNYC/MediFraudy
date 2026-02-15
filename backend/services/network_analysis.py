@@ -1,7 +1,8 @@
 """Network analysis service for provider relationship mapping.
 
 Wraps the existing graph_analyzer module to provide service-layer
-network intelligence with fraud ring detection and referral analysis.
+network intelligence with fraud ring detection, betweenness centrality,
+shared address clusters, and cross-borough cluster mapping.
 """
 
 import logging
@@ -10,6 +11,7 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
+import networkx as nx
 from analytics.graph_analyzer import FraudRingDetector
 
 logger = logging.getLogger(__name__)
@@ -66,6 +68,9 @@ def detect_fraud_rings(
             "communities": insights.get("num_communities", 0),
         },
         "most_central_providers": insights.get("most_central_providers", []),
+        "top_betweenness_brokers": insights.get("top_betweenness_brokers", []),
+        "shared_address_clusters": insights.get("shared_address_clusters", []),
+        "cross_borough_clusters": insights.get("cross_borough_clusters", []),
         "analyzed_at": datetime.utcnow().isoformat(),
     }
 
@@ -95,6 +100,15 @@ def get_network_summary(
         }
 
     neighbors = list(detector.graph.neighbors(provider_id))
+
+    # Calculate betweenness centrality for this provider
+    betweenness = 0.0
+    try:
+        bc = nx.betweenness_centrality(detector.graph)
+        betweenness = bc.get(provider_id, 0.0)
+    except Exception:
+        pass
+
     connections = []
     for n in neighbors:
         edge_data = detector.graph.edges[provider_id, n]
@@ -128,6 +142,7 @@ def get_network_summary(
         "provider_id": provider_id,
         "connected_entities": len(connections),
         "high_risk_connections": high_risk_connections,
+        "betweenness_centrality": round(betweenness, 4),
         "connections": connections[:20],
         "in_fraud_ring": in_ring,
         "fraud_ring_info": ring_info,

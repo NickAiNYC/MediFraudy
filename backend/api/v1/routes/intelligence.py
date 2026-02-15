@@ -36,6 +36,11 @@ from services.fraud_detection import (
     borough_risk_heatmap,
     cross_borough_referral_analysis,
 )
+from analytics.entity_resolution import resolve_entities, find_duplicate_providers
+from analytics.temporal_intelligence import analyze_temporal_patterns
+from analytics.risk_tensor import calculate_risk_tensor
+from analytics.impossible_patterns import detect_impossible_patterns
+from services.cost_optimizer import optimizer
 
 logger = logging.getLogger(__name__)
 
@@ -209,3 +214,99 @@ def get_cross_borough_referrals(
 ):
     """Detect cross-borough referral patterns that may indicate fraud rings."""
     return cross_borough_referral_analysis(db, lookback_days)
+
+
+# --- Phase 1: Intelligence Architecture ---
+
+@router.get("/entity-resolution")
+def get_entity_resolution(
+    similarity_threshold: float = Query(0.7, ge=0.3, le=1.0),
+    db: Session = Depends(get_db),
+):
+    """Run entity resolution across all providers.
+
+    Deduplicates providers, detects shell companies, and identifies
+    phoenix companies using fuzzy matching and address clustering.
+    """
+    return optimizer.get_cached_or_compute(
+        key=f"entity_resolution:{similarity_threshold}",
+        compute_func=lambda: resolve_entities(db, similarity_threshold),
+        ttl=3600,
+    )
+
+
+@router.get("/entity-resolution/duplicates")
+def get_duplicate_providers(
+    threshold: float = Query(0.7, ge=0.3, le=1.0),
+    db: Session = Depends(get_db),
+):
+    """Find potential duplicate provider entities."""
+    return {
+        "duplicates": find_duplicate_providers(db, threshold),
+        "threshold": threshold,
+        "analyzed_at": datetime.utcnow().isoformat(),
+    }
+
+
+@router.get("/temporal/{provider_id}")
+def get_temporal_intelligence(
+    provider_id: int,
+    lookback_days: int = Query(730, ge=60, le=2555),
+    db: Session = Depends(get_db),
+):
+    """Run temporal intelligence analysis for a provider.
+
+    Detects billing velocity changes, seasonal anomalies,
+    weekend/holiday ghost claims, and statute of limitations tracking.
+    """
+    return optimizer.get_cached_or_compute(
+        key=f"temporal:{provider_id}:{lookback_days}",
+        compute_func=lambda: analyze_temporal_patterns(db, provider_id, lookback_days),
+        ttl=3600,
+    )
+
+
+@router.get("/risk-tensor/{provider_id}")
+def get_risk_tensor(
+    provider_id: int,
+    lookback_days: int = Query(365, ge=30, le=1825),
+    db: Session = Depends(get_db),
+):
+    """Calculate 8-dimensional risk tensor with PCA reduction.
+
+    Dimensions: Financial, Clinical, Network, Temporal, Geographic,
+    Behavioral, Regulatory, Peer.
+
+    Returns composite score with explainability (which dimensions
+    drive the score).
+    """
+    return optimizer.get_cached_or_compute(
+        key=f"risk_tensor:{provider_id}:{lookback_days}",
+        compute_func=lambda: calculate_risk_tensor(db, provider_id, lookback_days),
+        ttl=3600,
+    )
+
+
+@router.get("/impossible-patterns/{provider_id}")
+def get_impossible_patterns(
+    provider_id: int,
+    lookback_days: int = Query(365, ge=30, le=1825),
+    db: Session = Depends(get_db),
+):
+    """Detect physically, clinically, and temporally impossible patterns.
+
+    Checks for geospatial impossibility, clinical impossibility
+    (duplicate procedures, age/gender mismatches), and temporal
+    impossibility (25-hour days, billing after death).
+    """
+    return optimizer.get_cached_or_compute(
+        key=f"impossible_patterns:{provider_id}:{lookback_days}",
+        compute_func=lambda: detect_impossible_patterns(db, provider_id, lookback_days),
+        ttl=3600,
+    )
+
+
+@router.get("/cache-stats")
+def get_cache_stats():
+    """Return cost optimizer cache statistics."""
+    return optimizer.get_stats()

@@ -112,7 +112,11 @@ app.add_middleware(
 @app.get("/health")
 async def health_check():
     """Return service health status."""
-    return {"status": "healthy"}
+    return {
+        "status": "healthy",
+        "version": "2.1.0",
+        "environment": settings.ENVIRONMENT,
+    }
 
 
 # --- Providers ---

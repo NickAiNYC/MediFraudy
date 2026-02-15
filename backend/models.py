@@ -523,3 +523,25 @@ class ComplianceAudit(Base):
     
     # Relationships
     case = relationship("InvestigationCase", back_populates="audit_trail")
+
+
+class AuditLog(Base):
+    """Access audit log — who accessed what provider/resource and when.
+
+    Used for compliance tracking and security monitoring.
+    """
+    __tablename__ = "audit_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user = Column(String(100), nullable=False, index=True)
+    action = Column(String(100), nullable=False)  # e.g., "view_provider", "export_evidence"
+    resource = Column(String(100), nullable=False)  # e.g., "provider", "case", "evidence"
+    resource_id = Column(String(100), nullable=True, index=True)
+    ip_address = Column(String(45), nullable=True)
+    details = Column(JSON, default=dict)
+    timestamp = Column(DateTime, default=datetime.utcnow, index=True)
+
+    __table_args__ = (
+        Index("idx_audit_user_time", "user", "timestamp"),
+        Index("idx_audit_resource", "resource", "resource_id"),
+    )

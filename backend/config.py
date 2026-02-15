@@ -52,7 +52,9 @@ class Settings:
     # External services (optional)
     OPENAI_API_KEY: Optional[str] = os.getenv("OPENAI_API_KEY")
     CLAUDE_API_KEY: Optional[str] = os.getenv("CLAUDE_API_KEY")
-    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "local")  # local, openai, claude
+    DEEPSEEK_API_KEY: Optional[str] = os.getenv("DEEPSEEK_API_KEY")
+    DEEPSEEK_MODEL: str = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "local")  # local, openai, claude, deepseek
     
     # Export
     EXPORT_DIR: str = os.getenv("EXPORT_DIR", "/app/exports")

@@ -13,6 +13,9 @@ const Providers = React.lazy(() => import('./pages/Providers'));
 const PatternOfLife = React.lazy(() => import('./pages/PatternOfLife'));
 const Cases = React.lazy(() => import('./pages/Cases'));
 const HomeCarePage = React.lazy(() => import('./pages/HomeCarePage'));
+const Alerts = React.lazy(() => import('./pages/Alerts'));
+const EvidenceVault = React.lazy(() => import('./pages/EvidenceVault'));
+const FraudAgent = React.lazy(() => import('./pages/FraudAgent'));
 
 function App() {
   return (
@@ -40,6 +43,9 @@ function App() {
           <Route path="/providers" element={<Providers />} />
           <Route path="/pattern-of-life" element={<PatternOfLife />} />
           <Route path="/cases" element={<Cases />} />
+          <Route path="/alerts" element={<Alerts />} />
+          <Route path="/evidence" element={<EvidenceVault />} />
+          <Route path="/agent" element={<FraudAgent />} />
           <Route path="/home-care" element={<HomeCarePage />} />
           
           {/* 404 Fallback */}

@@ -1,504 +1,284 @@
-from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException, Query
-from fastapi.responses import StreamingResponse
-import io
-import csv
+"""Analytics trigger routes — all missing /api/analytics/* endpoints."""
+
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
-from typing import List, Dict, Union, Optional
+from sqlalchemy import func, text
 from database import get_db
-from analytics.market_basket import ClaimsAprioriAnalyzer
-from analytics.peer_grouping import PeerProfiler
-from analytics.member_profiling import MemberProfiler
-from analytics.sadc_detector import SADCDetector
-from analytics.pharmacy_detector import PharmacyDetector
-from analytics.cdpap_detector import CDPAPDetector
-from analytics.recipient_detector import RecipientDetector
-from analytics.nemt_detector import NEMTFraudDetector
-from analytics.homecare_detector import HomeCareFraudDetector
-from analytics.dashboard_summary import DashboardAggregator
-from models import AssociationRule, PeerGroup
-import json
-from analytics.pattern_of_life import (
-    analyze_nyc_elderly_care_facilities,
-    detect_kickback_patterns,
-    comprehensive_pattern_analysis,
-    analyze_behavioral_patterns,
-    detect_capacity_violations
-)
+from models import Provider, Claim, Beneficiary, EVVLog, TransportationTrip
 
-router = APIRouter(
-    prefix="/api/analytics",
-    tags=["advanced-analytics"],
-    responses={404: {"description": "Not found"}},
-)
+router = APIRouter()
 
-@router.get("/pattern-of-life/{provider_id}")
-def get_full_pattern_of_life_analysis(
-    provider_id: int, 
-    lookback_days: int = 365, 
-    db: Session = Depends(get_db)
+
+@router.get("/analytics/dashboard/summary", tags=["Analytics"])
+def dashboard_summary(db: Session = Depends(get_db)):
+    from models import Case
+    provider_count = db.query(Provider).count()
+    claim_count = db.query(Claim).count()
+    total_billed = db.query(func.sum(Claim.amount)).scalar() or 0.0
+    open_cases = db.query(Case).filter(Case.status == "open").count()
+    return {
+        "providers": provider_count,
+        "claims": claim_count,
+        "total_billed": round(total_billed, 2),
+        "open_cases": open_cases,
+        "currency": "USD",
+    }
+
+
+@router.get("/analytics/nemt/impossible-trips", tags=["Analytics"])
+def nemt_impossible_trips(
+    limit: int = Query(50, ge=1, le=500),
+    db: Session = Depends(get_db),
 ):
-    """
-    Run comprehensive Pattern-of-Life analysis (Behavioral + Capacity + Kickbacks).
-    """
-    return comprehensive_pattern_analysis(db, provider_id, lookback_days)
-
-@router.get("/nyc-elderly-care-sweep")
-def get_nyc_elderly_care_sweep(
-    min_risk_score: int = 50,
-    limit: int = 50,
-    db: Session = Depends(get_db)
-):
-    """
-    Run a forensic sweep of NYC elderly care facilities.
-    """
-    results = analyze_nyc_elderly_care_facilities(db, min_risk_score=min_risk_score, limit=limit)
-    return results
-
-@router.get("/provider/{provider_id}/behavioral")
-def get_provider_behavioral(
-    provider_id: int, 
-    lookback_days: int = 365, 
-    db: Session = Depends(get_db)
-):
-    """
-    Analyze specific provider for behavioral anomalies (weekend billing, robotic patterns).
-    """
-    return analyze_behavioral_patterns(db, provider_id, lookback_days)
-
-@router.get("/provider/{provider_id}/capacity")
-def get_provider_capacity(
-    provider_id: int, 
-    lookback_days: int = 365, 
-    db: Session = Depends(get_db)
-):
-    """
-    Check if a provider is billing for more patients than their licensed capacity.
-    """
-    return detect_capacity_violations(db, provider_id, lookback_days)
-
-@router.get("/provider/{provider_id}/kickbacks")
-def get_provider_kickbacks(
-    provider_id: int, 
-    lookback_days: int = 365, 
-    db: Session = Depends(get_db)
-):
-    """
-    Analyze provider for kickback indicators (beneficiary concentration, referral anomalies).
-    """
-    return detect_kickback_patterns(db, provider_id, lookback_days)
-
-def export_to_csv(data: List[Dict], filename: str = "export.csv"):
-    if not data:
-        # Return empty CSV
-        return StreamingResponse(
-            iter([""]), 
-            media_type="text/csv", 
-            headers={"Content-Disposition": f"attachment; filename={filename}"}
+    trips = (
+        db.query(TransportationTrip)
+        .filter(
+            TransportationTrip.claimed_distance.isnot(None),
+            TransportationTrip.calculated_distance.isnot(None),
+            TransportationTrip.claimed_distance > TransportationTrip.calculated_distance * 1.5,
         )
-    
-    output = io.StringIO()
-    writer = csv.DictWriter(output, fieldnames=data[0].keys())
-    writer.writeheader()
-    writer.writerows(data)
-    output.seek(0)
-    
-    return StreamingResponse(
-        iter([output.getvalue()]),
-        media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        .limit(limit)
+        .all()
     )
+    results = []
+    for t in trips:
+        ratio = (
+            round(t.claimed_distance / t.calculated_distance, 2)
+            if t.calculated_distance and t.calculated_distance > 0
+            else None
+        )
+        results.append({
+            "trip_id": t.id,
+            "claim_id": t.claim_id,
+            "calculated_distance_miles": t.calculated_distance,
+            "claimed_distance_miles": t.claimed_distance,
+            "inflation_ratio": ratio,
+            "is_group_ride": t.is_group_ride,
+            "pickup": {"lat": t.pickup_lat, "lon": t.pickup_lon},
+            "dropoff": {"lat": t.dropoff_lat, "lon": t.dropoff_lon},
+        })
+    return {"impossible_trips": results, "count": len(results)}
 
-@router.post("/run-apriori")
-def run_apriori_analysis(
-    limit: int = 50000,
-    min_support: float = 0.01,
-    min_confidence: float = 0.5,
-    background_tasks: BackgroundTasks = None,
-    db: Session = Depends(get_db)
+
+@router.get("/analytics/nemt/ghost-rides", tags=["Analytics"])
+def nemt_ghost_rides(
+    limit: int = Query(50, ge=1, le=500),
+    db: Session = Depends(get_db),
 ):
-    """
-    Trigger Apriori algorithm to find association rules.
-    Runs in background as it can be slow.
-    """
-    # Create the analyzer instance
-    analyzer = ClaimsAprioriAnalyzer(db, min_support, min_confidence)
-    
-    # Define a wrapper function for the background task
-    def run_analysis_task(limit: int):
-        # We need a new session for the background task because the dependency session might be closed
-        # However, for simplicity in this synchronous example, we are using the passed db session.
-        # In a real production app with async endpoints, you'd use a fresh session.
-        # Given the current setup is synchronous, we'll just run it.
-        # BUT, BackgroundTasks run AFTER the response is sent, so the 'db' session from Depends might be closed.
-        # We need to instantiate a new session inside the task.
-        from database import SessionLocal
-        with SessionLocal() as session:
-            task_analyzer = ClaimsAprioriAnalyzer(session, min_support, min_confidence)
-            task_analyzer.run_analysis(limit)
-
-    if background_tasks:
-        background_tasks.add_task(run_analysis_task, limit)
-        return {"message": "Apriori analysis started in background", "limit": limit}
-    
-    # Sync run (for testing if no background task provided, though FastAPI always provides it)
-    rules = analyzer.run_analysis(limit)
-    return {"message": "Analysis complete", "rules_found": len(rules) if rules else 0}
-
-@router.get("/association-rules")
-def get_association_rules(db: Session = Depends(get_db)):
-    """Get discovered association rules."""
-    return db.query(AssociationRule).order_by(AssociationRule.confidence.desc()).all()
-
-@router.post("/run-peer-profiling")
-def run_peer_profiling(
-    background_tasks: BackgroundTasks = None,
-    db: Session = Depends(get_db)
-):
-    """
-    Trigger Peer Group Profiling.
-    1. Creates peer groups.
-    2. Calculates baselines.
-    """
-    from database import SessionLocal
-    
-    def run_profiling_job():
-        with SessionLocal() as session:
-            profiler = PeerProfiler(session)
-            profiler.create_peer_groups()
-            profiler.calculate_baselines()
-    
-    if background_tasks:
-        background_tasks.add_task(run_profiling_job)
-        return {"message": "Peer profiling started in background"}
-        
-    run_profiling_job()
-    return {"message": "Peer profiling complete"}
-
-@router.get("/peer-groups")
-def get_peer_groups(db: Session = Depends(get_db)):
-    """Get peer group baselines."""
-    return db.query(PeerGroup).all()
-
-@router.get("/peer-outliers")
-def get_peer_outliers(threshold: float = 3.0, db: Session = Depends(get_db)):
-    """Get providers flagged as outliers within their peer group."""
-    profiler = PeerProfiler(db)
-    return profiler.identify_outliers(threshold)
-
-@router.get("/member-analysis/high-cost", response_model=List[Dict])
-def get_high_cost_members(
-    threshold: float = 3.0,
-    limit: int = 100,
-    db: Session = Depends(get_db)
-):
-    """Identify members with statistically extreme spending."""
-    profiler = MemberProfiler(db)
-    return profiler.identify_high_risk_members(threshold, limit)
-
-@router.get("/member-analysis/doctor-shoppers", response_model=List[Dict])
-def get_doctor_shoppers(
-    threshold: float = 3.0,
-    limit: int = 100,
-    db: Session = Depends(get_db)
-):
-    """Identify members visiting unusually many providers."""
-    profiler = MemberProfiler(db)
-    return profiler.identify_doctor_shoppers(threshold, limit)
-
-@router.get("/member-analysis/stats")
-def get_member_statistics(db: Session = Depends(get_db)):
-    """Get population statistics for member behavior."""
-    profiler = MemberProfiler(db)
-    return profiler.get_member_stats()
-
-@router.get("/member-analysis/pill-mills", response_model=List[Dict])
-def get_pill_mill_suspects(
-    drug_codes: List[str] = Query(None, description="List of drug codes (e.g. J2270). Defaults to common opioids if empty."),
-    threshold: float = 3.0,
-    db: Session = Depends(get_db)
-):
-    """
-    Identify patients receiving extreme quantities of controlled substances (Pill Mill Detection).
-    """
-    profiler = MemberProfiler(db)
-    return profiler.identify_pill_mill_patients(drug_codes, threshold)
-
-@router.get("/recipient/card-sharing")
-def get_card_sharing_suspects(min_distance: float = 50.0, format: str = "json", db: Session = Depends(get_db)):
-    detector = RecipientDetector(db)
-    results = detector.detect_card_sharing(min_distance)
-    
-    if format == "csv":
-        return export_to_csv(results, "recipient_card_sharing.csv")
-    return results
-
-@router.get("/dashboard/summary")
-def get_dashboard_summary(db: Session = Depends(get_db)):
-    """
-    Get aggregated risk statistics for the main dashboard.
-    """
-    aggregator = DashboardAggregator(db)
-    return aggregator.get_summary_stats()
-
-# --- SADC Fraud Routes ---
-
-@router.get("/sadc/attendance-heatmap")
-def get_sadc_heatmap(limit: int = 1000, db: Session = Depends(get_db)):
-    """
-    Get daily attendance data for heatmap visualization.
-    """
-    detector = SADCDetector(db)
-    return detector.get_daily_attendance_heatmap(limit)
-
-@router.get("/sadc/attendance-spikes")
-def get_sadc_attendance_spikes(threshold: float = 2.5, format: str = "json", db: Session = Depends(get_db)):
-    """
-    Detect Social Adult Day Care (SADC) centers with suspicious daily attendance spikes.
-    """
-    detector = SADCDetector(db)
-    results = detector.detect_attendance_spikes(threshold)
-    
-    if format == "csv":
-        return export_to_csv(results, "sadc_attendance_spikes.csv")
-    return results
-
-@router.get("/sadc/impossible-attendance")
-def get_sadc_impossible_attendance(db: Session = Depends(get_db)):
-    """
-    Identify beneficiaries attending SADC programs daily (impossible for frail elderly).
-    """
-    detector = SADCDetector(db)
-    return detector.detect_impossible_attendance()
-
-@router.get("/sadc/ghost-patients")
-def get_sadc_ghost_patients(format: str = "json", db: Session = Depends(get_db)):
-    """
-    Identify 'Ghost' patients: High SADC attendance but ZERO other medical claims.
-    """
-    detector = SADCDetector(db)
-    results = detector.detect_ghost_patients()
-    
-    if format == "csv":
-        return export_to_csv(results, "sadc_ghost_patients.csv")
-    return results
-
-# --- Pharmacy Fraud Routes ---
-
-@router.get("/pharmacy/lidocaine-dumping")
-def get_lidocaine_dumping(threshold: float = 5000.0, format: str = "json", db: Session = Depends(get_db)):
-    """
-    Detect providers prescribing excessive Lidocaine patches (phantom pain kickbacks).
-    """
-    detector = PharmacyDetector(db)
-    results = detector.detect_lidocaine_dumping(threshold)
-    
-    if format == "csv":
-        return export_to_csv(results, "pharmacy_lidocaine_dumping.csv")
-    return results
-
-# --- CDPAP Fraud Routes ---
-
-@router.get("/cdpap/suspicious-caregivers")
-def get_cdpap_suspicious_caregivers(max_patients: int = 2, min_hours: float = 8.0, format: str = "json", db: Session = Depends(get_db)):
-    """
-    Identify caregivers with few patients billing high hours (likely relatives).
-    """
-    detector = CDPAPDetector(db)
-    results = detector.detect_suspicious_caregivers(max_patients, min_hours)
-    
-    if format == "csv":
-        return export_to_csv(results, "cdpap_suspicious_caregivers.csv")
-    return results
-
-@router.get("/cdpap/network")
-def get_cdpap_network(limit: int = 100, db: Session = Depends(get_db)):
-    """
-    Get graph data for CDPAP caregiver-patient relationships.
-    """
-    detector = CDPAPDetector(db)
-    return detector.get_caregiver_network(limit)
-
-@router.get("/cdpap/impossible-hours")
-def get_cdpap_impossible_hours(db: Session = Depends(get_db)):
-    """
-    Identify caregivers billing > 24 hours in a single day across all patients.
-    """
-    detector = CDPAPDetector(db)
-    return detector.detect_overlapping_hours()
-
-import zipfile
-from datetime import datetime
-
-# ... existing code ...
-
-@router.get("/recipient/reselling-meds")
-def get_medication_reselling_suspects(min_pharmacies: int = 3, format: str = "json", db: Session = Depends(get_db)):
-    """
-    Identify beneficiaries engaging in medication reselling or doctor shopping.
-    """
-    detector = RecipientDetector(db)
-    results = detector.detect_medication_resale(min_pharmacies)
-    
-    if format == "csv":
-        return export_to_csv(results, "recipient_medication_reselling.csv")
-    return results
-
-# --- NEMT Fraud Routes ---
-
-@router.get("/nemt/ghost-rides")
-def get_nemt_ghost_rides(limit: int = 50, format: str = "json", db: Session = Depends(get_db)):
-    """
-    Detect Ghost Rides (Transport without medical service).
-    """
-    detector = NEMTFraudDetector(db)
-    results = detector.detect_ghost_rides_systemwide(limit)
-    
-    if format == "csv":
-        return export_to_csv(results, "nemt_ghost_rides.csv")
-    return results
-
-@router.get("/nemt/impossible-trips")
-def get_nemt_impossible_trips(limit: int = 50, format: str = "json", db: Session = Depends(get_db)):
-    """
-    Detect Impossible Trips (Mileage Inflation).
-    """
-    detector = NEMTFraudDetector(db)
-    results = detector.detect_impossible_trips_systemwide(limit)
-    
-    if format == "csv":
-        return export_to_csv(results, "nemt_impossible_trips.csv")
-    return results
-
-@router.get("/export/doj-package")
-def export_doj_referral_package(db: Session = Depends(get_db)):
-    """
-    Generate a comprehensive 'DOJ Referral Package' containing:
-    1. SADC Attendance Spikes (CSV)
-    2. CDPAP Suspicious Caregivers (CSV)
-    3. Pharmacy Lidocaine Dumping (CSV)
-    4. Recipient Card Sharing (CSV)
-    5. Recipient Medication Reselling (CSV)
-    6. NEMT Ghost Rides (CSV)
-    7. SUMMARY.txt with high-level statistics
-    
-    Returns a ZIP file.
-    """
-    # 1. Gather Data
-    sadc_detector = SADCDetector(db)
-    sadc_spikes = sadc_detector.detect_attendance_spikes(threshold_z=2.5)
-    
-    cdpap_detector = CDPAPDetector(db)
-    cdpap_suspicious = cdpap_detector.detect_suspicious_caregivers(max_patients=2, min_hours_daily=8.0)
-    
-    pharmacy_detector = PharmacyDetector(db)
-    lidocaine_dumpers = pharmacy_detector.detect_lidocaine_dumping(threshold_amount=5000.0)
-    
-    recipient_detector = RecipientDetector(db)
-    card_sharers = recipient_detector.detect_card_sharing(min_distance_miles=50.0)
-    med_resellers = recipient_detector.detect_medication_resale(min_pharmacies=3)
-
-    nemt_detector = NEMTFraudDetector(db)
-    ghost_rides = nemt_detector.detect_ghost_rides_systemwide(limit=100)
-    impossible_trips = nemt_detector.detect_impossible_trips_systemwide(limit=100)
-
-    # Home Care Fraud (EVV, Ghost Visits)
-    homecare_detector = HomeCareFraudDetector(db)
-    homecare_risks = homecare_detector.scan_for_high_risk_agencies(limit=50, min_risk_score=40)
-
-    # NYC Elderly Care Sweep (Pattern of Life)
-    nyc_sweep = analyze_nyc_elderly_care_facilities(db, min_risk_score=40, limit=500)
-    nyc_high_risk = nyc_sweep.get("results", [])
-    
-    # 2. Create Zip in Memory
-    zip_buffer = io.BytesIO()
-    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-        
-        # Helper to add CSV to zip
-        def add_csv(data, filename):
-            if not data:
-                zip_file.writestr(filename, "")
-                return
-            output = io.StringIO()
-            writer = csv.DictWriter(output, fieldnames=data[0].keys())
-            writer.writeheader()
-            writer.writerows(data)
-            zip_file.writestr(filename, output.getvalue())
-
-        add_csv(sadc_spikes, "1_SADC_Attendance_Spikes.csv")
-        add_csv(cdpap_suspicious, "2_CDPAP_Suspicious_Caregivers.csv")
-        add_csv(lidocaine_dumpers, "3_Pharmacy_Lidocaine_Dumping.csv")
-        add_csv(card_sharers, "4_Recipient_Card_Sharing.csv")
-        add_csv(med_resellers, "5_Recipient_Medication_Reselling.csv")
-        add_csv(ghost_rides, "6_NEMT_Ghost_Rides.csv")
-    
-        # 7. Add Full Pattern of Life Reports for High Risk Providers (JSON)
-        # We create a folder "Forensic_Reports" in the zip
-        # Actually, let's fetch full reports for the top 5 highest risk facilities
-        top_5_risky = sorted(nyc_high_risk, key=lambda x: x.get('risk_score', 0), reverse=True)[:5]
-        for p in top_5_risky:
-            pid = p.get('provider_id')
-            if pid:
-                # Direct call to analysis function instead of route handler
-                full_report = comprehensive_pattern_analysis(db, pid, lookback_days=365)
-                report_json = json.dumps(full_report, indent=2, default=str)
-                zip_file.writestr(f"Forensic_Reports/Provider_{pid}_POL_Report.json", report_json)
-
-        add_csv(nyc_high_risk, "7_NYC_Elderly_Care_High_Risk.csv")
-
-        # 8. Home Care Fraud Reports (EVV, Ghost Visits)
-        add_csv(homecare_risks, "8_Home_Care_Fraud_Risks.csv")
-        
-        # Add detailed home care analysis for top 5 risky agencies
-        top_5_homecare = sorted(homecare_risks, key=lambda x: x.get('risk_score', 0), reverse=True)[:5]
-        for p in top_5_homecare:
-            pid = p.get('provider_id')
-            if pid:
-                full_analysis = homecare_detector.generate_homecare_risk_score(pid)
-                report_json = json.dumps(full_analysis, indent=2, default=str)
-                zip_file.writestr(f"Forensic_Reports/HomeCare_Provider_{pid}_Detailed_Analysis.json", report_json)
-    
-        # 3. Create Summary Text
-        summary = f"""
-DOJ MEDICAID FRAUD REFERRAL PACKAGE
-Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-================================================================
-
-SUMMARY OF FINDINGS
--------------------
-1. SADC Fraud (Attendance Spikes): {len(sadc_spikes)} targets identified.
-   - Potential kickback schemes timed with 'paydays'.
-   
-2. CDPAP Fraud (Relative Rackets): {len(cdpap_suspicious)} targets identified.
-   - Caregivers billing high hours for single patients (likely relatives).
-   
-3. Pharmacy Fraud (Lidocaine Dumping): {len(lidocaine_dumpers)} targets identified.
-   - Excessive dispensing of high-margin patches.
-
-4. Recipient Fraud:
-   - Card Sharing: {len(card_sharers)} beneficiaries.
-   - Medication Reselling: {len(med_resellers)} beneficiaries.
-
-5. NEMT Fraud (Ghost Rides): {len(ghost_rides)} providers identified.
-   - Billing for transport without corresponding medical claims.
-
-6. NYC Elderly Care Sweep (Pattern of Life): {len(nyc_high_risk)} facilities identified.
-   - Comprehensive forensic analysis of Nursing Homes, Adult Day Care, and Home Health Agencies in NYC.
-   - Flagged for Capacity Violations, Kickback Patterns, and Behavioral Anomalies.
-
-7. Home Care Fraud (EVV & Ghost Visits): {len(homecare_risks)} agencies identified.
-   - Missing EVV records ($14.5B statewide issue).
-   - Short visits (< 8 mins) and Ghost Visits (during hospitalization).
-
-================================================================
-Generated by MediFraudy Evidence Hub
-    """
-        zip_file.writestr("SUMMARY_REPORT.txt", summary)
-
-    zip_buffer.seek(0)
-    
-    timestamp = datetime.now().strftime("%Y%m%d")
-    return StreamingResponse(
-        iter([zip_buffer.getvalue()]),
-        media_type="application/zip",
-        headers={"Content-Disposition": f"attachment; filename=DOJ_Referral_Package_{timestamp}.zip"}
+    claims = (
+        db.query(Claim)
+        .join(TransportationTrip, TransportationTrip.claim_id == Claim.id)
+        .filter(Claim.service_category.ilike("%transport%"))
+        .limit(limit * 2)
+        .all()
     )
+    results = []
+    for claim in claims:
+        evv_exists = (
+            db.query(EVVLog)
+            .filter(
+                EVVLog.beneficiary_id == claim.beneficiary_id,
+                func.date(EVVLog.timestamp) == claim.claim_date,
+            )
+            .first()
+        )
+        if not evv_exists:
+            results.append({
+                "claim_id": claim.id,
+                "beneficiary_id": claim.beneficiary_id,
+                "claim_date": str(claim.claim_date),
+                "amount": claim.amount,
+                "billing_code": claim.billing_code,
+                "evv_verified": False,
+                "fraud_flag": "ghost_ride_no_evv",
+            })
+        if len(results) >= limit:
+            break
+    return {"ghost_rides": results, "count": len(results)}
+
+
+@router.get("/analytics/recipient/reselling-meds", tags=["Analytics"])
+def recipient_reselling_meds(
+    min_pharmacies: int = Query(3, ge=2, le=20),
+    db: Session = Depends(get_db),
+):
+    rows = (
+        db.query(
+            Claim.beneficiary_id,
+            func.count(func.distinct(Claim.provider_id)).label("pharmacy_count"),
+            func.sum(Claim.amount).label("total_spend"),
+            func.count(Claim.id).label("claim_count"),
+        )
+        .filter(Claim.service_category.ilike("%pharm%"))
+        .group_by(Claim.beneficiary_id)
+        .having(func.count(func.distinct(Claim.provider_id)) >= min_pharmacies)
+        .order_by(func.count(func.distinct(Claim.provider_id)).desc())
+        .all()
+    )
+    return {
+        "reselling_suspects": [
+            {
+                "beneficiary_id": r.beneficiary_id,
+                "distinct_pharmacies": r.pharmacy_count,
+                "total_spend": round(r.total_spend or 0, 2),
+                "claim_count": r.claim_count,
+                "risk_flag": "multi_pharmacy_recipient",
+            }
+            for r in rows
+        ],
+        "count": len(rows),
+    }
+
+
+@router.get("/analytics/recipient/card-sharing", tags=["Analytics"])
+def recipient_card_sharing(
+    min_dist: float = Query(50.0, ge=1.0),
+    db: Session = Depends(get_db),
+):
+    rows = (
+        db.query(
+            Claim.beneficiary_id,
+            Claim.claim_date,
+            func.count(func.distinct(Claim.provider_id)).label("provider_count"),
+            func.sum(Claim.amount).label("total_amount"),
+        )
+        .group_by(Claim.beneficiary_id, Claim.claim_date)
+        .having(func.count(func.distinct(Claim.provider_id)) >= 2)
+        .order_by(func.count(func.distinct(Claim.provider_id)).desc())
+        .limit(200)
+        .all()
+    )
+    return {
+        "card_sharing_suspects": [
+            {
+                "beneficiary_id": r.beneficiary_id,
+                "date": str(r.claim_date),
+                "providers_same_day": r.provider_count,
+                "total_amount": round(r.total_amount or 0, 2),
+                "risk_flag": "card_sharing_multi_provider",
+            }
+            for r in rows
+        ],
+        "count": len(rows),
+    }
+
+
+@router.get("/analytics/sadc/attendance-heatmap", tags=["Analytics"])
+def sadc_attendance_heatmap(
+    limit: int = Query(500, ge=1, le=2000),
+    db: Session = Depends(get_db),
+):
+    rows = (
+        db.query(
+            Claim.provider_id,
+            Provider.name.label("provider_name"),
+            Provider.city,
+            Claim.claim_date,
+            func.count(func.distinct(Claim.beneficiary_id)).label("patient_count"),
+            func.sum(Claim.amount).label("day_total"),
+        )
+        .join(Provider, Claim.provider_id == Provider.id)
+        .filter(Provider.facility_type.ilike("%adult day%"))
+        .group_by(Claim.provider_id, Provider.name, Provider.city, Claim.claim_date)
+        .order_by(func.count(func.distinct(Claim.beneficiary_id)).desc())
+        .limit(limit)
+        .all()
+    )
+    return {
+        "heatmap": [
+            {
+                "provider_id": r.provider_id,
+                "provider_name": r.provider_name,
+                "city": r.city,
+                "date": str(r.claim_date),
+                "patient_count": r.patient_count,
+                "day_total": round(r.day_total or 0, 2),
+            }
+            for r in rows
+        ],
+        "count": len(rows),
+    }
+
+
+@router.get("/analytics/pharmacy/lidocaine-dumping", tags=["Analytics"])
+def pharmacy_lidocaine_dumping(
+    threshold: int = Query(1000, ge=100),
+    db: Session = Depends(get_db),
+):
+    LIDOCAINE_CODES = ["J2001", "J3490", "J3590", "99999"]
+    rows = (
+        db.query(
+            Claim.provider_id,
+            Provider.name.label("provider_name"),
+            Provider.city,
+            Claim.billing_code,
+            func.sum(Claim.units).label("total_units"),
+            func.sum(Claim.amount).label("total_billed"),
+            func.count(Claim.id).label("claim_count"),
+        )
+        .join(Provider, Claim.provider_id == Provider.id)
+        .filter(Claim.billing_code.in_(LIDOCAINE_CODES))
+        .group_by(Claim.provider_id, Provider.name, Provider.city, Claim.billing_code)
+        .having(func.sum(Claim.units) >= threshold)
+        .order_by(func.sum(Claim.units).desc())
+        .all()
+    )
+    return {
+        "lidocaine_dumping_suspects": [
+            {
+                "provider_id": r.provider_id,
+                "provider_name": r.provider_name,
+                "city": r.city,
+                "billing_code": r.billing_code,
+                "total_units": r.total_units,
+                "total_billed": round(r.total_billed or 0, 2),
+                "claim_count": r.claim_count,
+                "risk_flag": "excessive_lidocaine_billing",
+            }
+            for r in rows
+        ],
+        "count": len(rows),
+        "unit_threshold": threshold,
+    }
+
+
+@router.get("/analytics/cdpap/network", tags=["Analytics"])
+def cdpap_network(
+    limit: int = Query(200, ge=1, le=1000),
+    db: Session = Depends(get_db),
+):
+    rows = (
+        db.query(
+            Provider.id,
+            Provider.name,
+            Provider.city,
+            Provider.npi,
+            func.count(Claim.id).label("claim_count"),
+            func.count(func.distinct(Claim.beneficiary_id)).label("patient_count"),
+            func.sum(Claim.amount).label("total_billed"),
+        )
+        .join(Claim, Claim.provider_id == Provider.id)
+        .filter(
+            Provider.facility_type.ilike("%cdpap%")
+            | Provider.specialty.ilike("%cdpap%")
+        )
+        .group_by(Provider.id, Provider.name, Provider.city, Provider.npi)
+        .order_by(func.sum(Claim.amount).desc())
+        .limit(limit)
+        .all()
+    )
+    return {
+        "cdpap_providers": [
+            {
+                "provider_id": r.id,
+                "name": r.name,
+                "city": r.city,
+                "npi": r.npi,
+                "claim_count": r.claim_count,
+                "patient_count": r.patient_count,
+                "total_billed": round(r.total_billed or 0, 2),
+            }
+            for r in rows
+        ],
+        "count": len(rows),
+    }

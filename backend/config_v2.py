@@ -4,8 +4,7 @@ Modern configuration management with proper security and validation
 
 import os
 from typing import Optional, List
-from pydantic import Field, validator
-from pydantic_settings import BaseSettings
+from pydantic import BaseSettings, validator, Field
 from cryptography.fernet import Fernet
 import secrets
 

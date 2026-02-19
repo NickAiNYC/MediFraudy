@@ -1,3 +1,5 @@
+# Modern Railway configuration for 2026 architecture
+
 [build]
 builder = "NIXPACKS"
 
@@ -19,3 +21,22 @@ MAX_WORKERS = "4"
 DB_POOL_SIZE = "20"
 DB_MAX_OVERFLOW = "30"
 RATE_LIMIT_PER_MINUTE = "100"
+
+[[services]]
+name = "backend-v2"
+
+[services.variables]
+# Production-grade settings
+DB_POOL_SIZE = "50"
+DB_MAX_OVERFLOW = "50"
+MAX_WORKERS = "8"
+RATE_LIMIT_PER_MINUTE = "1000"
+
+[[services]]
+name = "data-processor"
+
+[services.variables]
+# Data processing optimized
+CHUNK_SIZE = "50000"
+BATCH_SIZE = "5000"
+MAX_WORKERS = "16"

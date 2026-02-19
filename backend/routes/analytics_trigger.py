@@ -12,17 +12,20 @@ router = APIRouter()
 @router.get("/analytics/dashboard/summary", tags=["Analytics"])
 def dashboard_summary(db: Session = Depends(get_db)):
     from models import Case
-    provider_count = db.query(Provider).count()
-    claim_count = db.query(Claim).count()
-    total_billed = db.query(func.sum(Claim.amount)).scalar() or 0.0
-    open_cases = db.query(Case).filter(Case.status == "open").count()
-    return {
-        "providers": provider_count,
-        "claims": claim_count,
-        "total_billed": round(total_billed, 2),
-        "open_cases": open_cases,
-        "currency": "USD",
-    }
+    try:
+        provider_count = db.query(Provider).count()
+        claim_count = db.query(Claim).count()
+        total_billed = db.query(func.sum(Claim.amount)).scalar() or 0.0
+        open_cases = db.query(Case).filter(Case.status == "open").count()
+        return {
+            "providers": provider_count,
+            "claims": claim_count,
+            "total_billed": round(total_billed, 2),
+            "open_cases": open_cases,
+            "currency": "USD",
+        }
+    except Exception as e:
+        return {"error": str(e)}
 
 
 @router.get("/analytics/nemt/impossible-trips", tags=["Analytics"])

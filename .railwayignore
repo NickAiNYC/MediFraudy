@@ -1,0 +1,22 @@
+# Force Railway to use Nixpacks - ignore ALL Docker files
+Dockerfile
+Dockerfile.*
+**/Dockerfile
+**/Dockerfile.*
+*.dockerfile
+**/*.dockerfile
+docker-compose.yml
+docker-compose*.yml
+**/docker-compose.yml
+
+# Ignore backups
+*.backup
+**/*.backup
+
+# Ignore node_modules
+**/node_modules/
+
+# Ignore frontend build artifacts
+frontend/build/
+frontend/dist/
+frontend/node_modules/

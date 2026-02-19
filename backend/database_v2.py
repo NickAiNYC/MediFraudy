@@ -3,10 +3,9 @@ Modern database connection management with proper pooling and async support
 """
 
 import os
-from sqlalchemy import create_engine, MetaData
+from sqlalchemy import create_engine, MetaData, text
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.pool import QueuePool
 import logging
 
 logger = logging.getLogger(__name__)
@@ -18,7 +17,6 @@ ASYNC_DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg:/
 # Async engine for modern FastAPI operations
 async_engine = create_async_engine(
     ASYNC_DATABASE_URL,
-    poolclass=QueuePool,
     pool_size=20,  # Increased from default 5
     max_overflow=30,  # For burst traffic
     pool_pre_ping=True,  # Validate connections
@@ -29,7 +27,6 @@ async_engine = create_async_engine(
 # Sync engine for legacy operations and migrations
 sync_engine = create_engine(
     DATABASE_URL,
-    poolclass=QueuePool,
     pool_size=15,
     max_overflow=25,
     pool_pre_ping=True,
@@ -70,7 +67,7 @@ async def check_database_health():
     """Verify database connectivity and performance"""
     try:
         async with AsyncSessionLocal() as session:
-            result = await session.execute("SELECT 1")
+            result = await session.execute(text("SELECT 1"))
             return {"status": "healthy", "latency_ms": "<10"}
     except Exception as e:
         logger.error(f"Database health check failed: {e}")

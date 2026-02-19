@@ -98,7 +98,7 @@ def generate_case_export_package(
 @router.get("/case/{case_id}")
 async def export_case_package(
     case_id: int,
-    format: str = Query("json", regex="^(json|pdf)$"),
+    format: str = Query("json", pattern="^(json|pdf)$"),
     include_pol: bool = Query(True),
     db: Session = Depends(get_db)
 ):

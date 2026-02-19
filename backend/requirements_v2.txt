@@ -1,0 +1,92 @@
+# Modern 2026-ready dependencies
+
+# Core Framework - Latest versions
+fastapi>=0.115.0,<1.0.0
+uvicorn[standard]>=0.32.0,<1.0.0
+gunicorn>=23.0.0,<24.0.0
+
+# Async Database - Modern approach
+sqlalchemy[asyncio]>=2.0.0,<3.0.0
+asyncpg>=0.30.0,<1.0.0
+alembic>=1.14.0,<2.0.0
+
+# Performance & Caching
+redis>=5.2.0,<6.0.0
+dragonflydb>=1.0.0,<2.0.0  # Redis replacement for 2026
+
+# Modern Data Processing
+polars>=1.0.0,<2.0.0              # Faster than pandas
+pyarrow>=18.0.0,<19.0.0           # Columnar storage
+duckdb>=1.0.0,<2.0.0              # Analytics database
+
+# AI/ML Stack - 2026 ready
+torch>=2.5.0,<3.0.0               # PyTorch for GNNs
+torch-geometric>=2.6.0,<3.0.0     # Graph Neural Networks
+scikit-learn>=1.5.0,<2.0.0
+xgboost>=2.1.0,<3.0.0
+lightgbm>=4.5.0,<5.0.0
+
+# Vector Databases - AI search mandatory
+pinecone-client>=3.2.0,<4.0.0
+weaviate-client>=4.8.0,<5.0.0
+
+# Streaming & Events - Real-time processing
+kafka-python>=2.0.0,<3.0.0
+aiokafka>=0.9.0,<1.0.0
+celery>=5.4.0,<6.0.0
+
+# Observability - 2026 standards
+opentelemetry-api>=1.27.0,<2.0.0
+opentelemetry-sdk>=1.27.0,<2.0.0
+opentelemetry-instrumentation-fastapi>=0.48b0,<1.0.0
+opentelemetry-exporter-prometheus>=1.27.0,<2.0.0
+prometheus-client>=0.21.0,<1.0.0
+sentry-sdk[fastapi]>=2.15.0,<3.0.0
+
+# Security - Modern cryptography
+cryptography>=43.0.0,<44.0.0
+passlib[bcrypt]>=1.7.4,<2.0.0
+python-jose[cryptography]>=3.3.0,<4.0.0
+python-multipart>=0.0.17,<1.0.0
+
+# API & Rate Limiting
+httpx>=0.28.0,<1.0.0
+fastapi-limiter>=0.1.6,<1.0.0
+slowapi>=0.1.9,<1.0.0
+
+# Configuration & Validation
+pydantic>=2.10.0,<3.0.0
+pydantic-settings>=2.6.0,<3.0.0
+python-dotenv>=1.0.1,<2.0.0
+
+# Background Jobs & Task Processing
+celery>=5.4.0,<6.0.0
+flower>=2.0.1,<3.0.0
+
+# File Processing - Modern async
+aiofiles>=24.1.0,<25.0.0
+python-magic>=0.4.27,<1.0.0
+
+# Testing - Modern approach
+pytest>=8.3.0,<9.0.0
+pytest-asyncio>=0.24.0,<1.0.0
+pytest-cov>=6.0.0,<7.0.0
+httpx>=0.28.0,<1.0.0
+
+# Development Tools
+ruff>=0.8.0,<1.0.0              # Modern linting
+black>=24.0.0,<25.0.0            # Formatting
+mypy>=1.13.0,<2.0.0             # Type checking
+pre-commit>=4.0.0,<5.0.0
+
+# Monitoring & Health
+psutil>=6.1.0,<7.0.0
+aiosmtplib>=3.0.2,<4.0.0
+
+# Documentation (optional)
+mkdocs>=1.6.0,<2.0.0
+mkdocs-material>=9.5.0,<10.0.0
+
+# Legacy compatibility (phase out)
+pandas>=2.2.0,<3.0.0            # Keep for migration
+numpy>=1.26.0,<2.0.0             # Keep for compatibility

@@ -59,6 +59,7 @@ from api.v1.routes.intelligence import router as intelligence_router
 from api.v1.routes.auth import router as auth_router
 from api.v1.routes.agent import router as agent_router
 from api.v1.routes.data_loading import router as data_loading_router
+from simple_load_endpoint import create_simple_load_router
 
 # Analytics modules
 from analytics.statistical import (
@@ -293,6 +294,7 @@ app.include_router(intelligence_router, prefix="/api/v1", tags=["Intelligence", 
 app.include_router(auth_router, prefix="/api/v1", tags=["Authentication", "v1"])
 app.include_router(agent_router, prefix="/api/v1", tags=["AI Agent", "v1"])
 app.include_router(data_loading_router, prefix="/api/v1/data-loading", tags=["Data Loading", "v1"])
+app.include_router(create_simple_load_router(), prefix="/api/temp", tags=["Temporary Loader"])
 
 # Include health router again at root for Railway healthcheck
 app.include_router(health_router, prefix="/health", tags=["Health"])
@@ -328,22 +330,29 @@ async def ping():
 
 
 @app.get("/api/admin/run-migration")
-def run_migration(db: Session = Depends(get_db)):
-    """Run database migration to add provider_id column to claims table"""
-    from sqlalchemy import text
+async def run_migration():
+    """TEMPORARY - delete after running once"""
+    import psycopg2
+    import os
     try:
-        db.execute(text("""
+        conn = psycopg2.connect(os.getenv("DATABASE_URL"))
+        cur = conn.cursor()
+        cur.execute("""
             ALTER TABLE claims 
             ADD COLUMN IF NOT EXISTS provider_id INTEGER REFERENCES providers(id)
-        """))
-        db.commit()
-        result = db.execute(text("""
+        """)
+        conn.commit()
+        
+        # Check what columns exist now
+        cur.execute("""
             SELECT column_name, data_type 
             FROM information_schema.columns 
             WHERE table_name = 'claims' 
             ORDER BY ordinal_position
-        """))
-        columns = [{"column": r[0], "type": r[1]} for r in result]
+        """)
+        columns = [{"column": r[0], "type": r[1]} for r in cur.fetchall()]
+        cur.close()
+        conn.close()
         return {"status": "done", "claims_columns": columns}
     except Exception as e:
         return {"status": "error", "detail": str(e)}

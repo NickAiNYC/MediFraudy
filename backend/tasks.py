@@ -157,6 +157,69 @@ def cleanup_old_audit_logs(retention_days: int = 2555):  # 7 years for HIPAA
         db.close()
 
 
+@celery_app.task(name="tasks.load_railway_data", bind=True, max_retries=3)
+def load_railway_data(
+    self,
+    zip_path: str,
+    state_filter: str = "NY",
+    resume: bool = True,
+    max_rows: int = None
+):
+    """
+    Load 77M Medicaid claims data on Railway with streaming and resume capability.
+    
+    This task is designed for Railway's constraints:
+    - Streams from ZIP without full extraction
+    - Processes in 10k row chunks (max 50MB RAM)
+    - Saves checkpoints every 50k rows
+    - Can resume from last checkpoint on crash
+    
+    Args:
+        zip_path: Path to the 3.6GB ZIP file
+        state_filter: Filter to specific state (default NY)
+        resume: Resume from last checkpoint
+        max_rows: Limit total rows (for testing)
+        
+    Returns:
+        dict: Loading statistics
+    """
+    from services.railway_data_loader import RailwayDataLoader
+    import redis
+    
+    logger.info(f"Starting Railway data load: {zip_path}")
+    
+    try:
+        # Connect to Redis for progress tracking
+        redis_client = None
+        try:
+            redis_client = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379/0"))
+            redis_client.ping()
+        except Exception as e:
+            logger.warning(f"Redis not available for progress tracking: {e}")
+        
+        # Initialize loader
+        loader = RailwayDataLoader(
+            zip_path=zip_path,
+            redis_client=redis_client,
+            progress_key=f"data_load_progress:{self.request.id}"
+        )
+        
+        # Load data
+        stats = loader.load_data(
+            state_filter=state_filter,
+            resume=resume,
+            max_rows=max_rows
+        )
+        
+        logger.info(f"Data load completed: {stats}")
+        return stats
+        
+    except Exception as e:
+        logger.error(f"Data load failed: {e}", exc_info=True)
+        # Retry with exponential backoff
+        raise self.retry(exc=e, countdown=300 * (2 ** self.request.retries))  # 5min, 10min, 20min
+
+
 # Celery Beat Schedule (periodic tasks)
 celery_app.conf.beat_schedule = {
     "batch-risk-score-update-nightly": {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Tabs, Tab, Container, Paper, Button, Typography, Chip } from '@mui/material';
+import { Box, Tabs, Tab, Container, Paper, Button, Typography, Chip, Grid, Stack } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
   People as PeopleIcon,
@@ -9,6 +9,9 @@ import {
   Gavel as CaseIcon,
   Download as DownloadIcon,
   Shield as ShieldIcon,
+  Psychology as PsychologyIcon,
+  AutoAwesome as AutoAwesomeIcon,
+  Assessment as AssessmentIcon,
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import { UnifiedDashboard } from './UnifiedDashboard';
@@ -18,6 +21,13 @@ import PatternOfLife from './PatternOfLife';
 import HomeCarePage from './HomeCarePage';
 import Cases from './Cases';
 import { exportApi } from '../services/api';
+import RealTimeFraudAlerts from '../components/RealTimeFraudAlerts';
+import ExecutiveSummary from '../components/ExecutiveSummary';
+import PredictiveAnalytics from '../components/PredictiveAnalytics';
+import AIFraudNarrative from '../components/AIFraudNarrative';
+import AdvancedFilters from '../components/AdvancedFilters';
+import ThemeToggle from '../components/ThemeToggle';
+import { useTheme } from '../hooks/useTheme';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -36,6 +46,8 @@ function TabPanel(props: TabPanelProps) {
 
 export const MasterDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState(0);
+  const { mode, toggleTheme } = useTheme();
+  const [filters, setFilters] = useState<any>(null);
 
   const handleDownload = () => {
     exportApi.downloadDOJPackage();
@@ -84,26 +96,29 @@ export const MasterDashboard: React.FC = () => {
               Unified Multi-Vector Fraud Detection Platform
             </Typography>
           </Box>
-          <Button
-            variant="contained"
-            size="large"
-            startIcon={<DownloadIcon />}
-            onClick={handleDownload}
-            sx={{
-              background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 100%)',
-              fontWeight: 700,
-              px: 3,
-              py: 1.5,
-              borderRadius: 2,
-              boxShadow: '0 4px 15px rgba(239, 68, 68, 0.3)',
-              '&:hover': {
-                background: 'linear-gradient(135deg, #b91c1c 0%, #dc2626 100%)',
-                boxShadow: '0 6px 20px rgba(239, 68, 68, 0.4)',
-              },
-            }}
-          >
-            Download DOJ Package
-          </Button>
+          <Stack direction="row" spacing={2}>
+            <ThemeToggle mode={mode} onToggle={toggleTheme} />
+            <Button
+              variant="contained"
+              size="large"
+              startIcon={<DownloadIcon />}
+              onClick={handleDownload}
+              sx={{
+                background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 100%)',
+                fontWeight: 700,
+                px: 3,
+                py: 1.5,
+                borderRadius: 2,
+                boxShadow: '0 4px 15px rgba(239, 68, 68, 0.3)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #b91c1c 0%, #dc2626 100%)',
+                  boxShadow: '0 6px 20px rgba(239, 68, 68, 0.4)',
+                },
+              }}
+            >
+              Download DOJ Package
+            </Button>
+          </Stack>
         </Box>
       </motion.div>
 
@@ -138,36 +153,63 @@ export const MasterDashboard: React.FC = () => {
             }}
           >
             <Tab icon={<DashboardIcon />} iconPosition="start" label="Overview" id="tab-0" />
-            <Tab icon={<PeopleIcon />} iconPosition="start" label="Providers" id="tab-1" />
-            <Tab icon={<WarningIcon />} iconPosition="start" label="Fraud Rings" id="tab-2" />
-            <Tab icon={<TrendingIcon />} iconPosition="start" label="Pattern Analysis" id="tab-3" />
-            <Tab icon={<HomeWorkIcon />} iconPosition="start" label="Home Care" id="tab-4" />
-            <Tab icon={<CaseIcon />} iconPosition="start" label="Cases" id="tab-5" />
+            <Tab icon={<AssessmentIcon />} iconPosition="start" label="Executive" id="tab-1" />
+            <Tab icon={<PsychologyIcon />} iconPosition="start" label="Predictive AI" id="tab-2" />
+            <Tab icon={<PeopleIcon />} iconPosition="start" label="Providers" id="tab-3" />
+            <Tab icon={<WarningIcon />} iconPosition="start" label="Fraud Rings" id="tab-4" />
+            <Tab icon={<TrendingIcon />} iconPosition="start" label="Pattern Analysis" id="tab-5" />
+            <Tab icon={<HomeWorkIcon />} iconPosition="start" label="Home Care" id="tab-6" />
+            <Tab icon={<AutoAwesomeIcon />} iconPosition="start" label="AI Narrative" id="tab-7" />
+            <Tab icon={<CaseIcon />} iconPosition="start" label="Cases" id="tab-8" />
           </Tabs>
         </Paper>
       </motion.div>
 
       <TabPanel value={activeTab} index={0}>
-        <UnifiedDashboard />
+        <Grid container spacing={3}>
+          <Grid item xs={12}>
+            <RealTimeFraudAlerts />
+          </Grid>
+          <Grid item xs={12}>
+            <UnifiedDashboard />
+          </Grid>
+        </Grid>
       </TabPanel>
 
       <TabPanel value={activeTab} index={1}>
-        <ProviderSearch />
+        <ExecutiveSummary />
       </TabPanel>
 
       <TabPanel value={activeTab} index={2}>
-        <FraudRingsPage />
+        <PredictiveAnalytics />
       </TabPanel>
 
       <TabPanel value={activeTab} index={3}>
-        <PatternOfLife />
+        <Box>
+          <Box sx={{ mb: 3 }}>
+            <AdvancedFilters onApply={setFilters} />
+          </Box>
+          <ProviderSearch />
+        </Box>
       </TabPanel>
 
       <TabPanel value={activeTab} index={4}>
-        <HomeCarePage />
+        <FraudRingsPage />
       </TabPanel>
 
       <TabPanel value={activeTab} index={5}>
+        <PatternOfLife />
+      </TabPanel>
+
+      <TabPanel value={activeTab} index={6}>
+        <HomeCarePage />
+      </TabPanel>
+
+      <TabPanel value={activeTab} index={7}>
+        <AIFraudNarrative />
+      </TabPanel>
+
+      <TabPanel value={activeTab} index={8}>
         <Cases />
       </TabPanel>
     </Container>

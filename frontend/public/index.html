@@ -3,32 +3,262 @@
   <head>
     <meta charset="utf-8" />
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
     <meta name="theme-color" content="#0f172a" />
     <meta
       name="description"
-      content="MediFraudy - Medicaid Fraud Detection Platform | 77.3M Claims Analyzed"
+      content="MediFraudy - Elite Medicaid Fraud Detection Platform | 77.3M Claims Analyzed | Real-Time Risk Analysis"
     />
+    <meta name="keywords" content="medicaid fraud, fraud detection, healthcare compliance, false claims act, whistleblower, qui tam" />
+    <meta name="author" content="MediFraudy Analytics" />
+    
+    <!-- Open Graph / Social Media -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="MediFraudy - Fraud Detection Platform" />
+    <meta property="og:description" content="Elite Medicaid fraud detection analyzing 77.3M claims in real-time" />
+    <meta property="og:image" content="%PUBLIC_URL%/og-image.png" />
+    
+    <!-- Apple Touch Icon -->
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    
+    <!-- DNS Prefetch for Performance -->
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+    <link rel="dns-prefetch" href="https://unpkg.com" />
+    <link rel="dns-prefetch" href="https://api.mapbox.com" />
+    <link rel="dns-prefetch" href="https://basemaps.cartocdn.com" />
+    
+    <!-- Preconnect for Critical Resources -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-    <title>MediFraudy | Fraud Detection Platform</title>
+    <link rel="preconnect" href="https://unpkg.com" crossorigin />
+    
+    <!-- Fonts - Inter (UI) + JetBrains Mono (Data/Numbers) -->
+    <link 
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" 
+      rel="stylesheet" 
+    />
+    
+    <!-- Leaflet CSS - Critical for NYC Map -->
+    <link 
+      rel="stylesheet" 
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" 
+      crossorigin="" 
+    />
+    
+    <!-- Leaflet Custom Styles for Dark Theme -->
+    <style>
+      /* Leaflet Dark Theme Customization */
+      .leaflet-container {
+        background: #1e293b !important;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      }
+      
+      .leaflet-popup-content-wrapper {
+        background: #ffffff;
+        color: #0f172a;
+        border-radius: 8px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+      }
+      
+      .leaflet-popup-tip {
+        background: #ffffff;
+      }
+      
+      .leaflet-control-zoom a {
+        background: #1e293b !important;
+        color: #10b981 !important;
+        border: 1px solid #334155 !important;
+      }
+      
+      .leaflet-control-zoom a:hover {
+        background: #334155 !important;
+        color: #34d399 !important;
+      }
+      
+      .leaflet-bar {
+        border: 1px solid #334155 !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+      }
+      
+      /* Custom Popup Styles */
+      .custom-popup .leaflet-popup-content {
+        margin: 0 !important;
+        width: auto !important;
+      }
+      
+      /* Loading Screen */
+      #loading-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #020617 0%, #0f172a 50%, #1e293b 100%);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+        transition: opacity 0.5s ease-out;
+      }
+      
+      #loading-screen.fade-out {
+        opacity: 0;
+        pointer-events: none;
+      }
+      
+      .loading-logo {
+        font-size: 3rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 1rem;
+        font-family: 'Inter', sans-serif;
+        letter-spacing: -0.025em;
+      }
+      
+      .loading-spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid #334155;
+        border-top-color: #10b981;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+      
+      .loading-text {
+        margin-top: 1rem;
+        color: #94a3b8;
+        font-size: 0.875rem;
+        font-weight: 500;
+        font-family: 'JetBrains Mono', monospace;
+      }
+      
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+      
+      /* Body Base Styles */
+      body {
+        margin: 0;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+          'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        background: #020617;
+        color: #f1f5f9;
+        overflow-x: hidden;
+      }
+      
+      code {
+        font-family: 'JetBrains Mono', source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+      }
+      
+      /* Scrollbar Styling */
+      ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+      }
+      
+      ::-webkit-scrollbar-track {
+        background: #0f172a;
+      }
+      
+      ::-webkit-scrollbar-thumb {
+        background: #334155;
+        border-radius: 5px;
+      }
+      
+      ::-webkit-scrollbar-thumb:hover {
+        background: #475569;
+      }
+      
+      /* Print Styles */
+      @media print {
+        body {
+          background: white;
+          color: black;
+        }
+        
+        .no-print {
+          display: none !important;
+        }
+      }
+    </style>
+    
+    <title>MediFraudy | Elite Fraud Detection Platform</title>
   </head>
   <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <noscript>
+      <div style="
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        background: #0f172a;
+        color: #f1f5f9;
+        font-family: 'Inter', sans-serif;
+        text-align: center;
+        padding: 2rem;
+      ">
+        <div>
+          <h1 style="font-size: 2rem; font-weight: 800; color: #10b981; margin-bottom: 1rem;">
+            MediFraudy
+          </h1>
+          <p style="color: #94a3b8; margin-bottom: 1rem;">
+            You need to enable JavaScript to run this application.
+          </p>
+          <p style="color: #64748b; font-size: 0.875rem;">
+            This platform requires JavaScript for real-time fraud detection and data visualization.
+          </p>
+        </div>
+      </div>
+    </noscript>
+    
+    <!-- Loading Screen -->
+    <div id="loading-screen">
+      <div class="loading-logo">MediFraudy</div>
+      <div class="loading-spinner"></div>
+      <div class="loading-text">Loading fraud analytics...</div>
+    </div>
+    
+    <!-- React Root -->
     <div id="root"></div>
+    
+    <!-- Remove Loading Screen After App Loads -->
+    <script>
+      window.addEventListener('load', function() {
+        setTimeout(function() {
+          const loadingScreen = document.getElementById('loading-screen');
+          if (loadingScreen) {
+            loadingScreen.classList.add('fade-out');
+            setTimeout(function() {
+              loadingScreen.remove();
+            }, 500);
+          }
+        }, 500);
+      });
+    </script>
+    
     <!--
-      This HTML file is a template.
-      If you open it directly in the browser, you will see an empty page.
-
-      You can add webfonts, meta tags, or analytics to this file.
-      The build step will place the bundled scripts into the <body> tag.
-
-      To begin the development, run `npm start` or `yarn start`.
-      To create a production bundle, use `npm run build` or `yarn build`.
+      MediFraudy - Elite Medicaid Fraud Detection Platform
+      Analyzing 77.3M claims in real-time
+      
+      Built for whistleblower law firms, DOJ investigators, and state fraud control units.
+      
+      Features:
+      - Real-time NYC fraud density mapping
+      - Capacity violation timeline analysis
+      - Network graph fraud ring detection
+      - Court-ready PDF evidence generation
+      - Multi-vector fraud pattern recognition
+      
+      For licensing inquiries: contact@medifraudy.com
     -->
   </body>
 </html>

@@ -57,11 +57,14 @@ def homecare_sweep(
             risk_score += 20
             flags.append("high_claim_volume")
 
-        evv_count = (
-            db.query(func.count(EVVLog.id))
-            .filter(EVVLog.provider_id == r.id)
-            .scalar() or 0
-        )
+        try:
+            evv_count = (
+                db.query(func.count(EVVLog.id))
+                .filter(EVVLog.provider_id == r.id)
+                .scalar() or 0
+            )
+        except Exception:
+            evv_count = 0
         if evv_count == 0 and r.claim_count > 10:
             risk_score += 20
             flags.append("no_evv_records")

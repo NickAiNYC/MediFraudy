@@ -3,13 +3,15 @@ Modern database connection management with proper pooling and async support
 """
 
 import os
-from sqlalchemy import create_engine, MetaData
+from sqlalchemy import create_engine, MetaData, text
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.pool import QueuePool
+from sqlalchemy.orm import sessionmaker, Session, declarative_base
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Declarative Base for models
+Base = declarative_base()
 
 # Database configuration
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -18,7 +20,6 @@ ASYNC_DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg:/
 # Async engine for modern FastAPI operations
 async_engine = create_async_engine(
     ASYNC_DATABASE_URL,
-    poolclass=QueuePool,
     pool_size=20,  # Increased from default 5
     max_overflow=30,  # For burst traffic
     pool_pre_ping=True,  # Validate connections
@@ -29,7 +30,6 @@ async_engine = create_async_engine(
 # Sync engine for legacy operations and migrations
 sync_engine = create_engine(
     DATABASE_URL,
-    poolclass=QueuePool,
     pool_size=15,
     max_overflow=25,
     pool_pre_ping=True,

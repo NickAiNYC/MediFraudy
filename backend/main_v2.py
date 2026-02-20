@@ -21,6 +21,12 @@ from config import settings
 from database_v2 import async_engine, get_async_db, check_database_health
 from data_pipeline_v2 import modern_loader
 from cache_manager import cache_manager, cached, cache_analytics_dashboard, get_cached_analytics_dashboard
+from background_jobs import job_manager, schedule_data_load, schedule_analytics_refresh, schedule_cache_warm
+from api.v2.routes.litigation import router as litigation_router
+from api.v2.routes.political import router as political_router
+from api.v2.routes.dashboard import router as dashboard_router
+from api.v2.routes.must_haves import router as must_haves_router
+from api.v2.routes.claimswarm import router as claimswarm_router
 
 # Configure Sentry for production
 if settings.SENTRY_DSN and settings.ENVIRONMENT == "production":
@@ -220,24 +226,63 @@ async def get_dashboard_v2(
 
 @app.post("/api/v2/data/load", tags=["Data"])
 async def load_data_v2(
-    background_tasks: BackgroundTasks,
     sample_size: Optional[int] = Query(None),
-    db: AsyncSession = Depends(get_async_db)
+    zip_path: Optional[str] = Query("/tmp/medicaid_claims.zip")
 ):
-    """Modern data loading endpoint with background processing"""
+    """Modern data loading endpoint with background job processing"""
     
-    # Start background loading task
-    background_tasks.add_task(
-        load_data_background,
-        sample_size=sample_size
-    )
+    # Schedule background job
+    job_id = await schedule_data_load(zip_path, sample_size)
     
     DATA_LOAD_COUNT.inc()
     
     return {
-        "status": "loading_started",
-        "message": "Data loading started in background",
+        "status": "job_scheduled",
+        "job_id": job_id,
+        "message": "Data loading job scheduled",
         "sample_size": sample_size
+    }
+
+@app.get("/api/v2/jobs/{job_id}", tags=["Jobs"])
+async def get_job(job_id: str):
+    """Get job status and progress"""
+    job = await job_manager.get_job_status(job_id)
+    
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    return job
+
+@app.get("/api/v2/jobs", tags=["Jobs"])
+async def list_jobs(status: Optional[str] = Query(None)):
+    """List all background jobs"""
+    jobs = await job_manager.list_jobs(status)
+    
+    return {
+        "jobs": jobs,
+        "total": len(jobs)
+    }
+
+@app.post("/api/v2/jobs/analytics-refresh", tags=["Jobs"])
+async def refresh_analytics():
+    """Schedule analytics cache refresh job"""
+    job_id = await schedule_analytics_refresh()
+    
+    return {
+        "status": "job_scheduled",
+        "job_id": job_id,
+        "message": "Analytics refresh job scheduled"
+    }
+
+@app.post("/api/v2/jobs/cache-warm", tags=["Jobs"])
+async def warm_cache():
+    """Schedule cache warming job"""
+    job_id = await schedule_cache_warm()
+    
+    return {
+        "status": "job_scheduled", 
+        "job_id": job_id,
+        "message": "Cache warming job scheduled"
     }
 
 async def load_data_background(sample_size: Optional[int] = None):
@@ -256,6 +301,21 @@ async def load_data_background(sample_size: Optional[int] = None):
     except Exception as e:
         logger.error(f"❌ Background load failed: {e}")
         raise
+
+# Include litigation routes
+app.include_router(litigation_router)
+
+# Include political intelligence routes
+app.include_router(political_router)
+
+# Include dashboard routes
+app.include_router(dashboard_router)
+
+# Include must-haves routes
+app.include_router(must_haves_router)
+
+# Include ClaimSwarm routes
+app.include_router(claimswarm_router)
 
 # Error handling
 @app.exception_handler(Exception)

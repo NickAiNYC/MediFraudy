@@ -4,6 +4,8 @@ import { Box, CircularProgress } from '@mui/material';
 import Layout from './components/Layout/Layout';
 
 // Lazy load pages for better performance
+const EliteDashboard = React.lazy(() => import('./components/EliteDashboard'));
+const ClaimSwarmDashboard = React.lazy(() => import('./components/ClaimSwarmDashboard'));
 const MasterDashboard = React.lazy(() => import('./pages/MasterDashboard'));
 const ProviderDetail = React.lazy(() => import('./pages/ProviderDetail'));
 const Settings = React.lazy(() => import('./pages/Settings'));
@@ -37,6 +39,8 @@ function App() {
           
           {/* Main Routes - Everything in one master dashboard */}
           <Route path="/dashboard" element={<MasterDashboard />} />
+          <Route path="/elite" element={<EliteDashboard />} />
+          <Route path="/claimswarm" element={<ClaimSwarmDashboard />} />
           <Route path="/provider/:id" element={<ProviderDetail />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/profile" element={<Profile />} />

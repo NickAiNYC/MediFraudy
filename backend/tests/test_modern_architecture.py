@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 
 from database_v2 import async_engine, AsyncSessionLocal
-from config_v2 import settings
+from config import settings
 from main_v2 import app
 
 class TestModernArchitecture:
